@@ -35,14 +35,14 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deep">
         <div className="max-w-md w-full mx-4 text-center">
-          {/* Logo */}
+          {/* Logo — invert for dark background */}
           <div className="mb-10">
             <Image
               src="/fieldvoices-logo.png"
               alt="FieldVoices"
-              width={280}
-              height={280}
-              className="mx-auto"
+              width={260}
+              height={260}
+              className="mx-auto invert brightness-200"
               priority
             />
           </div>
