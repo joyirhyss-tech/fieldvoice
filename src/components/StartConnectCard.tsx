@@ -40,10 +40,11 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             <Image
               src="/fieldvoices-logo.png"
               alt="FieldVoices"
-              width={260}
-              height={260}
+              width={424}
+              height={139}
               className="mx-auto"
               priority
+              unoptimized
             />
           </div>
 
