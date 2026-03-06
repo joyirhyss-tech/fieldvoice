@@ -1,26 +1,356 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Navy system */
+  --navy-950: #0A0F1C;
+  --navy-900: #0F1829;
+  --navy-800: #152038;
+  --navy-700: #1B2A4A;
+  --navy-600: #243660;
+  --navy-500: #2E4578;
+  --navy-400: #4A6494;
+  --navy-300: #7B96BD;
+  --navy-200: #B0C4DE;
+  --navy-100: #D8E3F0;
+  --navy-50: #EDF1F7;
+
+  /* Gold system */
+  --gold-500: #C9A84C;
+  --gold-400: #D4B85C;
+  --gold-300: #E0CA7A;
+  --gold-200: #EDD9A0;
+  --gold-100: #F5EDCE;
+  --gold-glow: rgba(201, 168, 76, 0.25);
+  --gold-shimmer: rgba(212, 184, 92, 0.12);
+
+  /* Functional */
+  --bg-deep: #0A0F1C;
+  --bg-surface: #152038;
+  --bg-surface-alt: #1B2A4A;
+  --bg-card: #192540;
+  --text-primary: #EDF1F7;
+  --text-secondary: #B0C4DE;
+  --text-muted: #7B96BD;
+  --accent-gold: #C9A84C;
+  --accent-gold-light: #D4B85C;
+  --accent-sage: #5CB88B;
+  --accent-sage-light: rgba(92, 184, 139, 0.15);
+  --alert-rose: #E05C6C;
+  --alert-rose-light: rgba(224, 92, 108, 0.15);
+  --border-subtle: rgba(75, 100, 148, 0.25);
+  --border-medium: rgba(75, 100, 148, 0.4);
+  --border-gold: rgba(201, 168, 76, 0.3);
+  --shadow-glow: rgba(201, 168, 76, 0.08);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-navy-700: var(--navy-700);
+  --color-navy-600: var(--navy-600);
+  --color-navy-500: var(--navy-500);
+  --color-navy-400: var(--navy-400);
+  --color-navy-300: var(--navy-300);
+  --color-navy-200: var(--navy-200);
+  --color-navy-100: var(--navy-100);
+  --color-navy-50: var(--navy-50);
+  --color-gold-500: var(--gold-500);
+  --color-gold-400: var(--gold-400);
+  --color-gold-300: var(--gold-300);
+  --color-gold-200: var(--gold-200);
+  --color-gold-100: var(--gold-100);
+  --color-gold-glow: var(--gold-glow);
+  --color-gold-shimmer: var(--gold-shimmer);
+  --color-bg-deep: var(--bg-deep);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-alt: var(--bg-surface-alt);
+  --color-bg-card: var(--bg-card);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-light: var(--accent-gold-light);
+  --color-accent-sage: var(--accent-sage);
+  --color-accent-sage-light: var(--accent-sage-light);
+  --color-alert-rose: var(--alert-rose);
+  --color-alert-rose-light: var(--alert-rose-light);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-medium: var(--border-medium);
+  --color-border-gold: var(--border-gold);
+  --color-shadow-glow: var(--shadow-glow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+}
+
+/* Card surface with subtle gold edge glow */
+.card-surface {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border-subtle);
+}
+
+/* Gold accent card */
+.card-gold {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px var(--gold-glow), 0 0 0 1px var(--border-gold);
+}
+
+/* Shiny gold button */
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+  color: var(--navy-950);
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 2px 8px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: all 0.2s ease;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, var(--gold-400), var(--gold-300));
+  box-shadow: 0 4px 16px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+}
+
+/* Navy button */
+.btn-navy {
+  background: var(--navy-600);
+  color: var(--text-primary);
+  font-weight: 500;
+  border: 1px solid var(--border-medium);
+  transition: all 0.2s ease;
+}
+
+.btn-navy:hover {
+  background: var(--navy-500);
+  border-color: var(--gold-500);
+  box-shadow: 0 0 12px var(--gold-glow);
+}
+
+/* Glow pulse for active elements */
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--gold-glow); }
+  50% { box-shadow: 0 0 20px var(--gold-glow), 0 0 40px rgba(201, 168, 76, 0.08); }
+}
+
+.glow-pulse {
+  animation: gold-pulse 3s ease-in-out infinite;
+}
+
+/* Shimmer effect for gold accents */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.gold-shimmer {
+  background: linear-gradient(90deg, transparent 0%, var(--gold-shimmer) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+/* Ticker animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-scroll {
+  animation: ticker-scroll 40s linear infinite;
+}
+
+.ticker-scroll:hover {
+  animation-play-state: paused;
+}
+
+.ticker-scroll-slow {
+  animation: ticker-scroll 80s linear infinite;
+}
+
+.ticker-scroll-slow:hover {
+  animation-play-state: paused;
+}
+
+/* Smooth transitions */
+.panel-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Collapsible panel */
+.panel-collapse {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+}
+
+/* Scrollbar styling — navy themed */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--navy-500);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--navy-400);
+}
+
+/* Input styling */
+.input-navy {
+  background: var(--navy-900);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.input-navy:focus {
+  outline: none;
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+.input-navy::placeholder {
+  color: var(--text-muted);
+}
+
+/* ==============================
+   ACCESSIBILITY FOUNDATIONS
+   ============================== */
+
+/* Focus indicators — visible for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--gold-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove outline for mouse users, keep for keyboard */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip to main content — screen reader and keyboard users */
+.skip-to-main {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 12px 24px;
+  background: var(--gold-500);
+  color: var(--navy-950);
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+/* Minimum touch target size — 44x44px per WCAG 2.5.5 */
+button, [role="button"], a, select, input[type="checkbox"], input[type="radio"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Exception: inline text buttons and tiny UI elements use padding instead */
+.btn-inline {
+  min-height: auto;
+  min-width: auto;
+}
+
+/* Screen reader only — visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .glow-pulse,
+  .gold-shimmer,
+  .ticker-scroll,
+  .ticker-scroll-slow {
+    animation: none !important;
+  }
+
+  /* Show ticker content statically when motion is reduced */
+  .ticker-scroll, .ticker-scroll-slow {
+    overflow-x: auto;
+    transform: none !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .btn-gold, .btn-navy, .card-gold, .card-surface {
+    border: 2px solid ButtonText;
+  }
+
+  .input-navy {
+    border: 2px solid ButtonText;
+  }
+}
+
+/* Text size floor — minimum 12px for readability */
+.text-floor {
+  font-size: max(0.75rem, 12px);
+}
+
+/* ==============================
+   MOBILE RESPONSIVE
+   ============================== */
+
+/* Auto-collapse side panels on small screens */
+@media (max-width: 768px) {
+  /* Stack layout vertically on mobile */
+  .panel-collapse {
+    width: 100% !important;
+  }
+
+  /* Ensure touch targets are large enough */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Increase base text for readability */
+  body {
+    font-size: 16px;
+  }
+}
+
+/* Tablet adjustments */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .panel-collapse {
+    max-width: 200px;
+  }
 }
