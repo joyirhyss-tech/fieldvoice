@@ -42,7 +42,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
               alt="FieldVoices"
               width={260}
               height={260}
-              className="mx-auto invert brightness-200"
+              className="mx-auto"
               priority
             />
           </div>
