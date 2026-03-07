@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CampaignDraft, SurveyQuestion, QuestionType } from '@/lib/types';
-import { mockContextTriggers } from '@/lib/mock-data';
+import { useSettings } from '@/lib/useSettings';
 
 interface ReviewPanelProps {
   draft: CampaignDraft;
@@ -10,6 +10,15 @@ interface ReviewPanelProps {
   onNext: () => void;
   onBack: () => void;
 }
+
+const DEFAULT_CONTEXT_TRIGGERS = [
+  { id: 'post-meeting', event: 'post-meeting', label: 'After Team Meeting', description: 'Delivered 2 hours after a scheduled team meeting' },
+  { id: 'first-solo-shift', event: 'first-solo-shift', label: 'First Solo Shift', description: 'After first unaccompanied shift' },
+  { id: 'post-training', event: 'post-training', label: 'After Training', description: 'Following a training session' },
+  { id: 'weekly-pulse', event: 'weekly-pulse', label: 'Weekly Check-In', description: 'Friday afternoon pulse check' },
+  { id: 'incident-follow-up', event: 'incident-follow-up', label: 'Incident Follow-Up', description: '24 hours after a critical incident' },
+  { id: 'milestone-30-day', event: 'milestone-30-day', label: '30-Day Milestone', description: '30-day mark reflection' },
+];
 
 const QUESTION_TYPE_META: Record<QuestionType, { label: string; color: string; icon: string }> = {
   'open': { label: 'Open Response', color: 'text-blue-400 border-blue-400/20 bg-blue-400/5', icon: '💬' },
@@ -22,15 +31,44 @@ const QUESTION_TYPE_META: Record<QuestionType, { label: string; color: string; i
 };
 
 export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewPanelProps) {
+  const { settings, hasApiKey } = useSettings();
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState('');
   const [customType, setCustomType] = useState<QuestionType>('open');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [showDesignGuide, setShowDesignGuide] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
 
   const includedCount = draft.questions.filter((q) => q.included).length;
   const contextualQuestions = draft.questions.filter((q) => q.type === 'contextual');
+
+  const generateQuestions = async () => {
+    if (!hasApiKey) return;
+    setGenerating(true);
+    setGenerateError('');
+    try {
+      const res = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intention: draft.intention,
+          objective: draft.objective,
+          agencyContext: settings.agencyContext || undefined,
+          llmProvider: settings.llmProvider,
+          llmApiKey: settings.llmApiKey,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate questions');
+      onUpdate({ questions: [...draft.questions, ...data.questions] });
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const toggleQuestion = (id: string) => {
     onUpdate({
@@ -85,6 +123,117 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
     return { label: 'Custom', className: 'bg-navy-700 text-accent-sage border border-accent-sage/20' };
   };
 
+  // ── Empty State ──────────────────────────────────────────
+  if (draft.questions.length === 0 && !addingCustom) {
+    return (
+      <div className="space-y-5">
+        {/* Practice Center guidance */}
+        <div className="rounded-lg p-3.5 border border-amber-300/20 bg-amber-300/5">
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg flex-shrink-0">✦</span>
+            <div className="flex-1">
+              <h4 className="text-xs font-semibold text-amber-300 mb-1">Practice Center · AIdedEQ</h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Questions are guided by the heart and soul of the Practice Center — designed to be
+                humane, emotionally intelligent, and rooted in lived experience.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Statement of Need */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gold-400 mb-2">
+            Statement of Need
+          </label>
+          <textarea
+            value={draft.statementOfNeed}
+            onChange={(e) => onUpdate({ statementOfNeed: e.target.value })}
+            rows={3}
+            className="input-navy w-full px-3 py-2.5 text-sm resize-none"
+            placeholder="Describe why this survey matters and what it will accomplish..."
+          />
+        </div>
+
+        {/* Empty state — generate or add manually */}
+        <div className="py-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-navy-800 border border-border-gold flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+          </div>
+          <h3 className="text-sm font-semibold text-text-primary mb-1">No questions yet</h3>
+          <p className="text-xs text-text-muted max-w-sm mx-auto mb-6">
+            Generate questions with AI based on your intention and objective, or add them manually.
+          </p>
+
+          <div className="flex flex-col gap-3 max-w-xs mx-auto">
+            {/* AI Generate button */}
+            <button
+              onClick={generateQuestions}
+              disabled={generating || !hasApiKey}
+              className="btn-gold py-3 px-6 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                    <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" className="opacity-75" />
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  Generate with AI
+                </>
+              )}
+            </button>
+
+            {!hasApiKey && (
+              <p className="text-[10px] text-text-muted">
+                Set up your API key in Settings (Connection tab) to enable AI generation.
+              </p>
+            )}
+
+            {generateError && (
+              <p className="text-xs text-alert-rose">{generateError}</p>
+            )}
+
+            <button
+              onClick={() => setAddingCustom(true)}
+              className="px-6 py-2.5 rounded-lg text-sm border border-border-medium text-text-muted hover:text-gold-400 hover:border-gold-500/40 transition-colors"
+            >
+              + Add question manually
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-between pt-2">
+          <button
+            onClick={onBack}
+            className="px-4 py-2 text-sm font-medium rounded-lg text-text-muted hover:bg-navy-800 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            disabled={true}
+            className="btn-gold px-5 py-2 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next: Push survey
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Questions Exist ─────────────────────────────────────
   return (
     <div className="space-y-5">
       {/* Practice Center guidance banner */}
@@ -133,14 +282,14 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
           Statement of Need
         </label>
         <p className="text-xs text-text-muted mb-2">
-          Synthesized from your intention and objective by the LLM engine. Edit as needed.
+          Synthesized from your intention and objective. Edit as needed.
         </p>
         <textarea
           value={draft.statementOfNeed}
           onChange={(e) => onUpdate({ statementOfNeed: e.target.value })}
           rows={4}
           className="input-navy w-full px-3 py-2.5 text-sm resize-none"
-          placeholder="The LLM will generate a statement of need based on your intention and objective..."
+          placeholder="Describe why this survey matters and what it will accomplish..."
         />
       </div>
 
@@ -230,7 +379,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary">{q.text}</p>
 
-                      {/* Design note — humane guidance */}
+                      {/* Design note */}
                       {q.designNote && (
                         <p className="text-[10px] text-amber-300/70 italic mt-1 leading-relaxed">
                           {q.designNote}
@@ -245,7 +394,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                             <polyline points="12 6 12 12 16 14" />
                           </svg>
                           <span className="text-[10px] text-emerald-400">
-                            Trigger: {mockContextTriggers.find((t) => t.event === q.contextTrigger)?.label || q.contextTrigger}
+                            Trigger: {DEFAULT_CONTEXT_TRIGGERS.find((t) => t.event === q.contextTrigger)?.label || q.contextTrigger}
                           </span>
                         </div>
                       )}
@@ -289,8 +438,46 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
           })}
         </div>
 
-        {/* Add custom question */}
-        {addingCustom ? (
+        {/* Action buttons — Generate more + Add custom */}
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={generateQuestions}
+            disabled={generating || !hasApiKey}
+            className="flex-1 px-3 py-2 rounded-lg border border-dashed border-gold-500/40 text-xs text-gold-400 hover:bg-navy-800 hover:border-gold-500/60 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          >
+            {generating ? (
+              <>
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" className="opacity-75" />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                Generate more with AI
+              </>
+            )}
+          </button>
+          {!addingCustom && (
+            <button
+              onClick={() => setAddingCustom(true)}
+              className="flex-1 px-3 py-2 rounded-lg border border-dashed border-border-medium text-xs text-text-muted hover:text-gold-400 hover:border-gold-500/40 transition-colors"
+            >
+              + Add custom question
+            </button>
+          )}
+        </div>
+
+        {generateError && (
+          <p className="mt-2 text-xs text-alert-rose">{generateError}</p>
+        )}
+
+        {/* Add custom question form */}
+        {addingCustom && (
           <div className="mt-3 card-surface p-3 space-y-2">
             <textarea
               value={customText}
@@ -332,13 +519,6 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
               </button>
             </div>
           </div>
-        ) : (
-          <button
-            onClick={() => setAddingCustom(true)}
-            className="mt-3 w-full px-3 py-2 rounded-lg border border-dashed border-border-medium text-xs text-text-muted hover:text-gold-400 hover:border-gold-500/40 transition-colors"
-          >
-            + Add custom question
-          </button>
         )}
       </div>
 
@@ -361,7 +541,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${q.included ? 'bg-emerald-400' : 'bg-navy-600'}`} />
                 <span className="text-text-primary truncate flex-1">{q.text}</span>
                 <span className="text-[10px] text-emerald-400/60 flex-shrink-0">
-                  {mockContextTriggers.find((t) => t.event === q.contextTrigger)?.label || '—'}
+                  {DEFAULT_CONTEXT_TRIGGERS.find((t) => t.event === q.contextTrigger)?.label || '—'}
                 </span>
               </div>
             ))
@@ -372,10 +552,10 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
         {/* Available triggers */}
         <details className="mt-2.5">
           <summary className="text-[10px] text-emerald-400/70 cursor-pointer hover:text-emerald-400 transition-colors">
-            Available event triggers ({mockContextTriggers.length})
+            Available event triggers ({DEFAULT_CONTEXT_TRIGGERS.length})
           </summary>
           <div className="mt-1.5 space-y-1">
-            {mockContextTriggers.map((trigger) => (
+            {DEFAULT_CONTEXT_TRIGGERS.map((trigger) => (
               <div key={trigger.id} className="text-[10px] text-text-muted pl-2 border-l border-emerald-400/20">
                 <span className="text-text-secondary">{trigger.label}</span> — {trigger.description}
               </div>

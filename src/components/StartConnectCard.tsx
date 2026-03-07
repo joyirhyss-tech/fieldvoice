@@ -1,22 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useSettings } from '@/lib/useSettings';
 
 interface StartConnectCardProps {
   onConnect: () => void;
 }
 
 type Step = 'landing' | 'settings' | 'welcome';
-type SettingsTab = 'connection' | 'documents' | 'roles';
-
-interface ConnectionData {
-  databaseType: 'supabase' | 'custom' | '';
-  databaseUrl: string;
-  supabaseAnonKey: string;
-  llmProvider: 'anthropic' | 'openai' | '';
-  llmApiKey: string;
-}
+type SettingsTab = 'documents' | 'roles' | 'connection';
 
 interface UploadSlot {
   key: string;
@@ -27,20 +20,19 @@ interface UploadSlot {
 
 export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
   const [step, setStep] = useState<Step>('landing');
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('connection');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('documents');
+  const { settings, updateSettings } = useSettings();
 
-  // Connection state
-  const [connection, setConnection] = useState<ConnectionData>({
-    databaseType: '',
-    databaseUrl: '',
-    supabaseAnonKey: '',
-    llmProvider: '',
-    llmApiKey: '',
-  });
+  // Local state for connection fields — initialized from persisted settings
+  const [databaseType, setDatabaseType] = useState<'supabase' | 'custom' | ''>(settings.databaseType);
+  const [databaseUrl, setDatabaseUrl] = useState(settings.databaseUrl);
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(settings.supabaseAnonKey);
+  const [llmProvider, setLlmProvider] = useState<'anthropic' | 'openai' | ''>(settings.llmProvider);
+  const [llmApiKey, setLlmApiKey] = useState(settings.llmApiKey);
 
-  // Documents state
-  const [agencyName, setAgencyName] = useState('');
-  const [agencyContext, setAgencyContext] = useState('');
+  // Documents state — initialized from persisted settings
+  const [agencyName, setAgencyName] = useState(settings.agencyName);
+  const [agencyContext, setAgencyContext] = useState(settings.agencyContext);
   const [uploads, setUploads] = useState<UploadSlot[]>([
     { key: 'policies', label: 'Policies & Procedures', description: 'Core organizational policies', file: null },
     { key: 'compliance', label: 'Rules & Compliance', description: 'Regulatory and compliance documents', file: null },
@@ -49,10 +41,36 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     { key: 'background', label: 'Background / Reference', description: 'Program guides, org charts, reference materials', file: null },
   ]);
 
+  // Sync local state back to persisted settings whenever they change
+  useEffect(() => {
+    setDatabaseType(settings.databaseType);
+    setDatabaseUrl(settings.databaseUrl);
+    setSupabaseAnonKey(settings.supabaseAnonKey);
+    setLlmProvider(settings.llmProvider);
+    setLlmApiKey(settings.llmApiKey);
+    setAgencyName(settings.agencyName);
+    setAgencyContext(settings.agencyContext);
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleUpload = (key: string) => {
     setUploads((prev) =>
       prev.map((u) => (u.key === key ? { ...u, file: `${u.label}.pdf` } : u))
     );
+  };
+
+  const saveSettings = () => {
+    updateSettings({
+      databaseType,
+      databaseUrl,
+      supabaseAnonKey,
+      llmProvider,
+      llmApiKey,
+      agencyName,
+      agencyContext,
+    });
+    setStep('welcome');
   };
 
   // ── Step 1: Landing — Logo + Connect button ───────────────
@@ -119,17 +137,8 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
   }
 
   // ── Step 2: Full Settings ─────────────────────────────────
+  // Tabs ordered: Documents → Users & Roles → Connection
   const tabs: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    {
-      key: 'connection',
-      label: 'Connection',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-        </svg>
-      ),
-    },
     {
       key: 'documents',
       label: 'Documents',
@@ -149,6 +158,16 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
           <circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      key: 'connection',
+      label: 'Connection',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
       ),
     },
@@ -177,10 +196,22 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
           </div>
           {/* Bypass / Skip button */}
           <button
-            onClick={() => setStep('welcome')}
+            onClick={() => {
+              // Save whatever they've entered so far
+              updateSettings({
+                databaseType,
+                databaseUrl,
+                supabaseAnonKey,
+                llmProvider,
+                llmApiKey,
+                agencyName,
+                agencyContext,
+              });
+              setStep('welcome');
+            }}
             className="text-xs text-text-muted hover:text-gold-400 transition-colors underline underline-offset-2"
           >
-            Skip for now →
+            Skip for now &rarr;
           </button>
         </div>
 
@@ -204,96 +235,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
 
         {/* Tab content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {/* ── Connection Tab ─────────────────────────────── */}
-          {settingsTab === 'connection' && (
-            <div className="space-y-6">
-              {/* Database section */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-                  Database
-                </label>
-                <div className="flex gap-2 mb-3">
-                  {(['supabase', 'custom'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setConnection((s) => ({ ...s, databaseType: type }))}
-                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
-                        connection.databaseType === type
-                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
-                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
-                      }`}
-                    >
-                      {type === 'supabase' ? 'Supabase' : 'Custom DB'}
-                    </button>
-                  ))}
-                </div>
-                {connection.databaseType && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">
-                        {connection.databaseType === 'supabase' ? 'Project URL' : 'Connection String'}
-                      </label>
-                      <input
-                        type="text"
-                        value={connection.databaseUrl}
-                        onChange={(e) => setConnection((s) => ({ ...s, databaseUrl: e.target.value }))}
-                        placeholder={connection.databaseType === 'supabase' ? 'https://your-project.supabase.co' : 'postgresql://...'}
-                        className="input-navy w-full px-3 py-2 text-sm"
-                      />
-                    </div>
-                    {connection.databaseType === 'supabase' && (
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">Anon Key</label>
-                        <input
-                          type="password"
-                          value={connection.supabaseAnonKey}
-                          onChange={(e) => setConnection((s) => ({ ...s, supabaseAnonKey: e.target.value }))}
-                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                          className="input-navy w-full px-3 py-2 text-sm"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* LLM provider section */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-                  LLM Synthesis Engine
-                </label>
-                <div className="flex gap-2 mb-3">
-                  {(['anthropic', 'openai'] as const).map((provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => setConnection((s) => ({ ...s, llmProvider: provider }))}
-                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
-                        connection.llmProvider === provider
-                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
-                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
-                      }`}
-                    >
-                      {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
-                    </button>
-                  ))}
-                </div>
-                {connection.llmProvider && (
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">API Key</label>
-                    <input
-                      type="password"
-                      value={connection.llmApiKey}
-                      onChange={(e) => setConnection((s) => ({ ...s, llmApiKey: e.target.value }))}
-                      placeholder={`${connection.llmProvider === 'anthropic' ? 'sk-ant-' : 'sk-'}...`}
-                      className="input-navy w-full px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Documents Tab ──────────────────────────────── */}
+          {/* ── Documents Tab (first) ────────────────────────── */}
           {settingsTab === 'documents' && (
             <div className="space-y-4">
               {/* Agency context */}
@@ -353,7 +295,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             </div>
           )}
 
-          {/* ── Users & Roles Tab ──────────────────────────── */}
+          {/* ── Users & Roles Tab (second) ──────────────────── */}
           {settingsTab === 'roles' && (
             <div className="space-y-4">
               <p className="text-sm text-text-secondary mb-2">
@@ -382,13 +324,102 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
               ))}
             </div>
           )}
+
+          {/* ── Connection Tab (last) ────────────────────────── */}
+          {settingsTab === 'connection' && (
+            <div className="space-y-6">
+              {/* Database section */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+                  Database
+                </label>
+                <div className="flex gap-2 mb-3">
+                  {(['supabase', 'custom'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setDatabaseType(type)}
+                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
+                        databaseType === type
+                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
+                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
+                      }`}
+                    >
+                      {type === 'supabase' ? 'Supabase' : 'Custom DB'}
+                    </button>
+                  ))}
+                </div>
+                {databaseType && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-text-muted mb-1">
+                        {databaseType === 'supabase' ? 'Project URL' : 'Connection String'}
+                      </label>
+                      <input
+                        type="text"
+                        value={databaseUrl}
+                        onChange={(e) => setDatabaseUrl(e.target.value)}
+                        placeholder={databaseType === 'supabase' ? 'https://your-project.supabase.co' : 'postgresql://...'}
+                        className="input-navy w-full px-3 py-2 text-sm"
+                      />
+                    </div>
+                    {databaseType === 'supabase' && (
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">Anon Key</label>
+                        <input
+                          type="password"
+                          value={supabaseAnonKey}
+                          onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          className="input-navy w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* LLM provider section */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+                  LLM Synthesis Engine
+                </label>
+                <div className="flex gap-2 mb-3">
+                  {(['anthropic', 'openai'] as const).map((provider) => (
+                    <button
+                      key={provider}
+                      onClick={() => setLlmProvider(provider)}
+                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
+                        llmProvider === provider
+                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
+                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
+                      }`}
+                    >
+                      {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
+                    </button>
+                  ))}
+                </div>
+                {llmProvider && (
+                  <div>
+                    <label className="block text-xs text-text-muted mb-1">API Key</label>
+                    <input
+                      type="password"
+                      value={llmApiKey}
+                      onChange={(e) => setLlmApiKey(e.target.value)}
+                      placeholder={`${llmProvider === 'anthropic' ? 'sk-ant-' : 'sk-'}...`}
+                      className="input-navy w-full px-3 py-2 text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Footer — Save & Continue + Bypass */}
+        {/* Footer — Save & Continue */}
         <div className="px-6 py-4 border-t border-border-subtle bg-navy-900/50">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setStep('welcome')}
+              onClick={saveSettings}
               className="btn-gold flex-1 py-3 px-6 rounded-lg text-sm"
             >
               Save & Continue

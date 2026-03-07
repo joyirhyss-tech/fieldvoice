@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { WorkspaceView, ArchiveView, CampaignDraft, ChecklistItem, UserRole } from '@/lib/types';
-import { mockCampaigns, mockDailyBrief, mockThemes, mockFollowUps, mockKPIs, mockSurveyQuestions, mockLiveStatus, mockMyParticipation, mockShoutOuts, mockYouSaidWeDid } from '@/lib/mock-data';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 import { getRoleConfig } from '@/lib/roles';
 import StartConnectCard from '@/components/StartConnectCard';
 import SetupPanel from '@/components/SetupPanel';
@@ -28,7 +28,7 @@ const emptyDraft: CampaignDraft = {
   windowStart: '',
   windowEnd: '',
   statementOfNeed: '',
-  questions: [...mockSurveyQuestions],
+  questions: [],
 };
 
 const SURVEY_STEPS = [
@@ -38,11 +38,35 @@ const SURVEY_STEPS = [
   { key: 'push', label: 'Push', number: 4 },
 ];
 
+// Empty defaults for dashboard sections
+const emptyDailyBrief = {
+  id: '',
+  campaignId: '',
+  date: new Date().toISOString().split('T')[0],
+  themes: [],
+  actions: [],
+  regulationAlert: false,
+};
+
+const emptyLiveStatus = {
+  activeFieldVoices: 0,
+  totalParticipants: 0,
+  totalResponses: 0,
+  campaigns: [],
+};
+
+const emptyParticipation = {
+  activeSurveys: 0,
+  pendingQuestions: 0,
+  lastResponseDate: '',
+  currentSurvey: null,
+};
+
 export default function Home() {
   const [connected, setConnected] = useState(false);
   const [activeView, setActiveView] = useState<WorkspaceView | null>('home');
   const [archiveView, setArchiveView] = useState<ArchiveView>('voices');
-  const [draft, setDraft] = useState<CampaignDraft>({ ...emptyDraft });
+  const [draft, setDraft] = useLocalStorage<CampaignDraft>('fieldvoices-draft', emptyDraft);
   const [pushed, setPushed] = useState(false);
   const [currentRole, setCurrentRole] = useState<UserRole>('dop');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -70,13 +94,9 @@ export default function Home() {
 
   // Build participation object with accepted state
   const participationWithState = {
-    ...mockMyParticipation,
-    currentSurvey: mockMyParticipation.currentSurvey
-      ? { ...mockMyParticipation.currentSurvey, accepted: surveyAccepted }
-      : null,
+    ...emptyParticipation,
+    currentSurvey: null as null,
   };
-
-  const activeCampaign = mockCampaigns.find((c) => c.status === 'active') || null;
 
   // Determine the active survey step for the stepper
   const surveyStepKey = ['intention', 'audience', 'review', 'push'].includes(activeView || '')
@@ -172,7 +192,7 @@ export default function Home() {
             collapsed={leftCollapsed}
             onToggleCollapse={() => setLeftCollapsed(!leftCollapsed)}
             myParticipation={participationWithState}
-            liveStatus={mockLiveStatus}
+            liveStatus={emptyLiveStatus}
             onAcceptSurvey={(method?: string) => {
               setSurveyAccepted(true);
               if (method) setSurveyMethod(method);
@@ -188,7 +208,7 @@ export default function Home() {
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-text-primary">{getWorkspaceTitle()}</h2>
               {activeView === 'daily-brief' && (
-                <span className="text-xs text-text-muted">{mockDailyBrief.date}</span>
+                <span className="text-xs text-text-muted">{emptyDailyBrief.date}</span>
               )}
             </div>
 
@@ -273,16 +293,31 @@ export default function Home() {
 
             {activeView === 'survey-response' && (
               <SurveyResponsePanel
-                surveyTitle={mockMyParticipation.currentSurvey?.title || 'Survey'}
-                ownerName={mockMyParticipation.currentSurvey?.ownerName || ''}
-                questions={mockSurveyQuestions}
-                answeredCount={mockMyParticipation.currentSurvey?.questionsAnswered || 0}
+                surveyTitle="Survey"
+                ownerName=""
+                questions={[]}
+                answeredCount={0}
                 method={surveyMethod}
               />
             )}
 
             {activeView === 'daily-brief' && (
-              <DailyBriefNotebook brief={mockDailyBrief} />
+              emptyDailyBrief.actions.length > 0 ? (
+                <DailyBriefNotebook brief={emptyDailyBrief} />
+              ) : (
+                <div className="py-12 text-center">
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-muted">
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-text-muted">No daily brief yet</p>
+                  <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                    The daily brief will populate once you push a FieldVoices survey and start receiving responses.
+                  </p>
+                </div>
+              )
             )}
 
             {activeView === 'archive' && (
@@ -292,7 +327,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Work Plan — now in middle workspace */}
+            {/* Work Plan */}
             {activeView === 'workplan' && (
               <div className="space-y-5">
                 <div className="rounded-lg p-3 border border-border-subtle bg-navy-800/30">
@@ -300,10 +335,25 @@ export default function Home() {
                     Action items derived from your FieldVoices surveys. These can be exported to your department workplan, calendar, or meeting agenda.
                   </p>
                 </div>
-                <WorkPlanCard
-                  actions={mockDailyBrief.actions}
-                  followUps={mockFollowUps}
-                />
+                {emptyDailyBrief.actions.length > 0 ? (
+                  <WorkPlanCard
+                    actions={emptyDailyBrief.actions}
+                    followUps={[]}
+                  />
+                ) : (
+                  <div className="py-12 text-center">
+                    <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-muted">
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-text-muted">No action items yet</p>
+                    <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
+                      Work plan items will appear here once surveys generate themes and recommended actions.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -350,7 +400,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Home also shows compact work plan preview */}
+                {/* Home — compact work plan preview (empty state) */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Recent Work Plan Items</h3>
@@ -358,22 +408,13 @@ export default function Home() {
                       onClick={() => setActiveView('workplan')}
                       className="text-[10px] text-gold-400 hover:text-gold-300 transition-colors"
                     >
-                      View all →
+                      View all &rarr;
                     </button>
                   </div>
                   <div className="card-surface p-3">
-                    <div className="space-y-2">
-                      {mockDailyBrief.actions.slice(0, 2).map((action) => (
-                        <div key={action.id} className="flex items-center gap-2 text-xs">
-                          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            action.completed ? 'bg-accent-sage' : 'bg-navy-700 border border-border-medium'
-                          }`} />
-                          <span className={action.completed ? 'text-text-muted line-through' : 'text-text-primary'}>
-                            {action.description}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-xs text-text-muted text-center py-4">
+                      No action items yet &mdash; create your first FieldVoices survey to get started.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -424,89 +465,46 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Shared results — top concerns */}
+              {/* Shared results — top concerns (empty state) */}
               <div className="p-4 space-y-3 border-b border-border-subtle">
                 <h4 className="text-xs font-medium text-text-secondary">Top Repeated Concerns</h4>
-                <div className="space-y-1.5">
-                  {mockThemes.slice(0, 4).map((t) => (
-                    <div key={t.id} className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        t.severity === 'high' || t.severity === 'critical'
-                          ? 'bg-alert-rose'
-                          : t.severity === 'medium'
-                          ? 'bg-gold-500'
-                          : 'bg-accent-sage'
-                      }`} />
-                      <span className="text-xs text-text-primary truncate">{t.theme}</span>
-                      <span className="text-xs text-text-muted ml-auto flex-shrink-0">{t.frequency}x</span>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-text-muted py-2">
+                  No data yet &mdash; concerns will surface once surveys are active.
+                </p>
               </div>
 
-              {/* Follow-ups */}
-              {mockFollowUps.length > 0 && (
-                <div className="p-4 space-y-3 border-b border-border-subtle">
-                  <h4 className="text-xs font-medium text-text-secondary">Scheduled Follow-Ups</h4>
-                  <div className="space-y-1.5">
-                    {mockFollowUps.map((fu) => (
-                      <div key={fu.id} className="flex items-center gap-2 text-xs">
-                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          fu.type === 'risk' ? 'bg-alert-rose' : 'bg-accent-sage'
-                        }`} />
-                        <span className="text-text-primary truncate">{fu.theme}</span>
-                        <span className="text-text-muted ml-auto flex-shrink-0">{fu.triggerDate}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Follow-ups (empty state) */}
+              <div className="p-4 space-y-3 border-b border-border-subtle">
+                <h4 className="text-xs font-medium text-text-secondary">Scheduled Follow-Ups</h4>
+                <p className="text-[11px] text-text-muted py-2">
+                  No follow-ups scheduled yet.
+                </p>
+              </div>
 
-              {/* You Said / We Did — functional accountability loop */}
+              {/* You Said / We Did — functional accountability loop (empty state) */}
               <div className="p-4" role="region" aria-label="You Said We Did accountability tracker">
                 <div className="rounded-lg p-3 border border-gold-500/30 bg-navy-800 shadow-[0_0_16px_rgba(201,168,76,0.12),inset_0_1px_0_rgba(201,168,76,0.08)]">
                   <h4 className="text-xs font-semibold text-gold-400 mb-2">You Said / We Did</h4>
-                  <div className="space-y-2.5">
-                    {mockYouSaidWeDid.slice(0, 3).map((item) => (
-                      <div key={item.id} className="text-xs">
-                        <p className="text-text-muted">
-                          &ldquo;{item.youSaid}&rdquo;
-                        </p>
-                        <p className="text-text-primary mt-0.5">
-                          &rarr; {item.weDid}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    No entries yet &mdash; this section will show actions taken in response to your feedback.
+                  </p>
                 </div>
               </div>
 
-              {/* Shared metrics */}
+              {/* Shared metrics (empty state) */}
               <div className="p-4 border-t border-border-subtle">
                 <h4 className="text-xs font-medium text-text-secondary mb-2">Agency Metrics</h4>
-                <div className="space-y-2">
-                  {mockKPIs.slice(0, 4).map((kpi) => (
-                    <div key={kpi.label} className="flex items-center justify-between text-xs">
-                      <span className="text-text-muted truncate">{kpi.label}</span>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-text-primary font-medium">{kpi.value}</span>
-                        <span className={`text-[10px] ${
-                          kpi.trend === 'up' ? 'text-accent-sage' : kpi.trend === 'down' ? 'text-alert-rose' : 'text-text-muted'
-                        }`}>
-                          {kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '—'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-text-muted py-2">
+                  Metrics will populate as surveys complete and data flows in.
+                </p>
               </div>
             </div>
           )}
         </aside>
       </div>
 
-      {/* Bottom ticker — shout-outs from leadership */}
-      <MetricTicker shoutOuts={mockShoutOuts} />
+      {/* Bottom ticker — hidden when no shout-outs */}
+      <MetricTicker shoutOuts={[]} />
 
       {/* Settings panel overlay */}
       <SetupPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />

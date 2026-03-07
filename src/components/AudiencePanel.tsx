@@ -1,7 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { CampaignDraft } from '@/lib/types';
-import { mockAudienceGroups } from '@/lib/mock-data';
+
+const DEFAULT_AUDIENCE_GROUPS = [
+  'Field Staff',
+  'Site Supervisors',
+  'Program Team',
+  'Program Managers',
+  'All Departments',
+];
 
 interface AudiencePanelProps {
   draft: CampaignDraft;
@@ -11,6 +19,12 @@ interface AudiencePanelProps {
 }
 
 export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: AudiencePanelProps) {
+  const [customGroups, setCustomGroups] = useState<string[]>([]);
+  const [newGroup, setNewGroup] = useState('');
+  const [showAddGroup, setShowAddGroup] = useState(false);
+
+  const allGroups = [...DEFAULT_AUDIENCE_GROUPS, ...customGroups];
+
   const toggleGroup = (group: string) => {
     const current = draft.audience;
     if (current.includes(group)) {
@@ -18,6 +32,15 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
     } else {
       onUpdate({ audience: [...current, group] });
     }
+  };
+
+  const addCustomGroup = () => {
+    const trimmed = newGroup.trim();
+    if (!trimmed || allGroups.includes(trimmed)) return;
+    setCustomGroups((prev) => [...prev, trimmed]);
+    onUpdate({ audience: [...draft.audience, trimmed] });
+    setNewGroup('');
+    setShowAddGroup(false);
   };
 
   const minDays = 14;
@@ -40,8 +63,9 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
           Who should be heard?
         </label>
         <div className="flex flex-wrap gap-2">
-          {mockAudienceGroups.map((group) => {
+          {allGroups.map((group) => {
             const selected = draft.audience.includes(group);
+            const isCustom = customGroups.includes(group);
             return (
               <button
                 key={group}
@@ -53,9 +77,45 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
                 }`}
               >
                 {group}
+                {isCustom && <span className="ml-1 text-[10px] opacity-60">*</span>}
               </button>
             );
           })}
+
+          {/* Add group button */}
+          {showAddGroup ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCustomGroup()}
+                placeholder="Group name..."
+                className="input-navy px-2.5 py-1 text-sm rounded-full w-36"
+                autoFocus
+              />
+              <button
+                onClick={addCustomGroup}
+                disabled={!newGroup.trim()}
+                className="px-2 py-1 rounded-full text-xs text-gold-400 hover:text-gold-300 disabled:opacity-30 transition-colors"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setShowAddGroup(false); setNewGroup(''); }}
+                className="px-1.5 py-1 rounded-full text-xs text-text-muted hover:text-text-primary transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddGroup(true)}
+              className="px-3 py-1.5 rounded-full text-sm border border-dashed border-border-medium text-text-muted hover:text-gold-400 hover:border-gold-500/40 transition-colors"
+            >
+              + Add group
+            </button>
+          )}
         </div>
       </div>
 

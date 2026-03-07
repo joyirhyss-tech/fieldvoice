@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { mockBeHeardRequests, mockBeHeardStatuses } from '@/lib/mock-data';
+import { BeHeardRequest, BeHeardStatusUpdate } from '@/lib/types';
 
 const ROUTE_INFO = [
   { range: '0–39', label: 'Director of Programs', color: 'text-text-secondary' },
@@ -14,6 +14,23 @@ export default function BeHeardPanel() {
   const [content, setContent] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
+  const [submissions, setSubmissions] = useState<BeHeardRequest[]>([]);
+  const statuses: BeHeardStatusUpdate[] = [];
+
+  const handleSubmit = () => {
+    if (!content.trim()) return;
+    const newSubmission: BeHeardRequest = {
+      id: `bh-${Date.now()}`,
+      submittedBy: 'anonymous',
+      content: content.trim(),
+      score: Math.floor(Math.random() * 100),
+      routedTo: 'dop',
+      status: 'pending',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setSubmissions((prev) => [newSubmission, ...prev]);
+    setSubmitted(true);
+  };
 
   if (submitted) {
     return (
@@ -82,55 +99,56 @@ export default function BeHeardPanel() {
           Track what happened with your voice. All submissions are anonymous — only you can see your own history here.
         </p>
 
-        <div className="space-y-3">
-          {mockBeHeardRequests.map((request) => {
-            const statusUpdate = mockBeHeardStatuses.find((s) => s.requestId === request.id);
-            const statusColors = {
-              'pending': 'bg-navy-600',
-              'received': 'bg-navy-500',
-              'under-review': 'bg-gold-500',
-              'action-planned': 'bg-gold-400',
-              'resolved': 'bg-accent-sage',
-              'communicated': 'bg-accent-sage',
-              'reviewed': 'bg-gold-500',
-              'actioned': 'bg-accent-sage',
-              'escalated': 'bg-alert-rose',
-            };
-            const statusLabels = {
-              'pending': 'Received',
-              'reviewed': 'Under Review',
-              'actioned': 'Action Taken',
-              'escalated': 'Escalated',
-            };
+        {submissions.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-text-muted">No submissions yet. Share your voice above.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {submissions.map((request) => {
+              const statusUpdate = statuses.find((s) => s.requestId === request.id);
+              const statusColors: Record<string, string> = {
+                'pending': 'bg-navy-600',
+                'received': 'bg-navy-500',
+                'under-review': 'bg-gold-500',
+                'action-planned': 'bg-gold-400',
+                'resolved': 'bg-accent-sage',
+                'communicated': 'bg-accent-sage',
+                'reviewed': 'bg-gold-500',
+                'actioned': 'bg-accent-sage',
+                'escalated': 'bg-alert-rose',
+              };
+              const statusLabels: Record<string, string> = {
+                'pending': 'Received',
+                'reviewed': 'Under Review',
+                'actioned': 'Action Taken',
+                'escalated': 'Escalated',
+              };
 
-            return (
-              <div key={request.id} className="card-surface p-3" role="article">
-                <div className="flex items-start gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${statusColors[request.status] || 'bg-navy-600'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-text-primary leading-relaxed">{request.content}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[11px] text-text-muted">{request.createdAt}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-navy-700 text-text-secondary font-medium">
-                        {statusLabels[request.status] || request.status}
-                      </span>
-                      {statusUpdate?.actionType === 'communicate-existing' && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-gold-500/10 border border-gold-500/20 text-gold-400">
-                          Already resolved — being communicated
+              return (
+                <div key={request.id} className="card-surface p-3" role="article">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${statusColors[request.status] || 'bg-navy-600'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-text-primary leading-relaxed">{request.content}</p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[11px] text-text-muted">{request.createdAt}</span>
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-navy-700 text-text-secondary font-medium">
+                          {statusLabels[request.status] || request.status}
                         </span>
+                      </div>
+                      {statusUpdate && (
+                        <div className="mt-2 rounded bg-navy-700/50 p-2 border-l-2 border-accent-sage/40">
+                          <p className="text-[11px] text-text-secondary leading-relaxed">{statusUpdate.note}</p>
+                        </div>
                       )}
                     </div>
-                    {statusUpdate && (
-                      <div className="mt-2 rounded bg-navy-700/50 p-2 border-l-2 border-accent-sage/40">
-                        <p className="text-[11px] text-text-secondary leading-relaxed">{statusUpdate.note}</p>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
@@ -179,7 +197,7 @@ export default function BeHeardPanel() {
           Track my submissions
         </button>
         <button
-          onClick={() => content.trim() && setSubmitted(true)}
+          onClick={handleSubmit}
           disabled={!content.trim()}
           className="btn-gold px-6 py-2.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >

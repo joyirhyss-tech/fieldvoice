@@ -12,6 +12,9 @@ interface MetricTickerProps {
 }
 
 export default function MetricTicker({ shoutOuts }: MetricTickerProps) {
+  // Hide ticker when no shout-outs
+  if (shoutOuts.length === 0) return null;
+
   // Double for seamless loop
   const doubled = [...shoutOuts, ...shoutOuts];
 

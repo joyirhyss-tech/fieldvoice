@@ -1,10 +1,12 @@
 'use client';
 
 import { ArchiveView, Campaign, BeHeardRequest, ThemeAggregate } from '@/lib/types';
-import { mockCampaigns, mockBeHeardRequests, mockThemes } from '@/lib/mock-data';
 
 interface ArchiveCardGridProps {
   view: ArchiveView;
+  campaigns?: Campaign[];
+  concerns?: BeHeardRequest[];
+  themes?: ThemeAggregate[];
 }
 
 function VoiceCard({ campaign }: { campaign: Campaign }) {
@@ -89,15 +91,36 @@ function SolutionCard({ theme }: { theme: ThemeAggregate }) {
   );
 }
 
-export default function ArchiveCardGrid({ view }: ArchiveCardGridProps) {
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="py-12 text-center">
+      <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-muted">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+      </div>
+      <p className="text-sm text-text-muted">No {label} yet</p>
+      <p className="text-xs text-text-muted mt-1">
+        Data will appear here once you create your first FieldVoices survey.
+      </p>
+    </div>
+  );
+}
+
+export default function ArchiveCardGrid({ view, campaigns = [], concerns = [], themes = [] }: ArchiveCardGridProps) {
+  if (view === 'voices' && campaigns.length === 0) return <EmptyState label="archived surveys" />;
+  if (view === 'concerns' && concerns.length === 0) return <EmptyState label="concerns" />;
+  if (view === 'solutions' && themes.length === 0) return <EmptyState label="solutions" />;
+
   return (
     <div className="grid grid-cols-1 gap-3">
       {view === 'voices' &&
-        mockCampaigns.map((c) => <VoiceCard key={c.id} campaign={c} />)}
+        campaigns.map((c) => <VoiceCard key={c.id} campaign={c} />)}
       {view === 'concerns' &&
-        mockBeHeardRequests.map((r) => <ConcernCard key={r.id} request={r} />)}
+        concerns.map((r) => <ConcernCard key={r.id} request={r} />)}
       {view === 'solutions' &&
-        mockThemes.map((t) => <SolutionCard key={t.id} theme={t} />)}
+        themes.map((t) => <SolutionCard key={t.id} theme={t} />)}
     </div>
   );
 }
