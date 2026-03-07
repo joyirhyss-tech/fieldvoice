@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import StaffManager from '@/components/StaffManager';
 
 interface SetupPanelProps {
   open: boolean;
@@ -138,31 +139,7 @@ export default function SetupPanel({ open, onClose }: SetupPanelProps) {
             </div>
           )}
 
-          {activeTab === 'roles' && (
-            <div className="space-y-4">
-              <p className="text-sm text-text-secondary mb-4">
-                Configure team members and their roles. Role assignment controls visibility, workflow access, and action routing.
-              </p>
-              {[
-                { role: 'Executive Director', count: 1 },
-                { role: 'EVP', count: 1 },
-                { role: 'Director of Programs', count: 2 },
-                { role: 'Site Supervisor', count: 4 },
-                { role: 'Direct Service', count: 12 },
-                { role: 'Program Team', count: 3 },
-              ].map((r) => (
-                <div key={r.role} className="card-surface p-4 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-text-primary">{r.role}</h4>
-                    <p className="text-xs text-text-muted">{r.count} member{r.count !== 1 ? 's' : ''}</p>
-                  </div>
-                  <button className="btn-navy px-3 py-1.5 rounded-lg text-xs">
-                    Manage
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          {activeTab === 'roles' && <StaffManager />}
 
           {activeTab === 'connection' && (
             <div className="space-y-4">

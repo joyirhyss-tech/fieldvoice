@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { WorkspaceView, ArchiveView, CampaignDraft, ChecklistItem, UserRole } from '@/lib/types';
+import { WorkspaceView, ArchiveView, CampaignDraft, ChecklistItem, LoggedInUser } from '@/lib/types';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { getRoleConfig } from '@/lib/roles';
+import { getRotatingQuote } from '@/lib/quotes';
 import StartConnectCard from '@/components/StartConnectCard';
 import SetupPanel from '@/components/SetupPanel';
 import ActionRail from '@/components/ActionRail';
@@ -16,10 +17,13 @@ import DailyBriefNotebook from '@/components/DailyBriefNotebook';
 import ContextDrawer from '@/components/ContextDrawer';
 import ArchiveSwitcher from '@/components/ArchiveSwitcher';
 import ArchiveCardGrid from '@/components/ArchiveCardGrid';
-import WorkPlanCard from '@/components/WorkPlanCard';
 import MetricTicker from '@/components/MetricTicker';
 import ProgressChecklist from '@/components/ProgressChecklist';
 import SurveyResponsePanel from '@/components/SurveyResponsePanel';
+import SurveyInvitePanel from '@/components/SurveyInvitePanel';
+import MyImpactPlan from '@/components/MyImpactPlan';
+import YourContributions from '@/components/YourContributions';
+import SurveyBank from '@/components/SurveyBank';
 
 const emptyDraft: CampaignDraft = {
   intention: '',
@@ -63,18 +67,18 @@ const emptyParticipation = {
 };
 
 export default function Home() {
-  const [connected, setConnected] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [activeView, setActiveView] = useState<WorkspaceView | null>('home');
   const [archiveView, setArchiveView] = useState<ArchiveView>('voices');
   const [draft, setDraft] = useLocalStorage<CampaignDraft>('fieldvoices-draft', emptyDraft);
   const [pushed, setPushed] = useState(false);
-  const [currentRole, setCurrentRole] = useState<UserRole>('dop');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [surveyAccepted, setSurveyAccepted] = useState(false);
   const [surveyMethod, setSurveyMethod] = useState('desktop');
 
+  const currentRole = loggedInUser?.role || 'ed';
   const roleConfig = getRoleConfig(currentRole);
 
   const checklist: ChecklistItem[] = [
@@ -105,8 +109,8 @@ export default function Home() {
 
   const isSurveyFlow = activeView === 'request-fieldvoice' || surveyStepKey !== null;
 
-  if (!connected) {
-    return <StartConnectCard onConnect={() => setConnected(true)} />;
+  if (!loggedInUser) {
+    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} />;
   }
 
   // Determine workspace title and content
@@ -122,12 +126,14 @@ export default function Home() {
         return 'Be Heard';
       case 'survey-response':
         return 'Respond';
+      case 'survey-invite':
+        return 'Your Voices Needed';
       case 'daily-brief':
         return 'Daily Brief';
       case 'archive':
         return 'Archive';
-      case 'workplan':
-        return 'Work Plan';
+      case 'survey-bank':
+        return 'Survey Bank';
       default:
         return 'Workspace';
     }
@@ -150,7 +156,7 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-sm font-bold text-text-primary">FieldVoices</h1>
-          <span className="text-xs text-text-muted hidden sm:inline">&middot; {roleConfig.label}</span>
+          <span className="text-xs text-text-muted hidden sm:inline">&middot; {loggedInUser.name}</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -182,13 +188,7 @@ export default function Home() {
               }
             }}
             currentRole={currentRole}
-            onRoleChange={(role) => {
-              setCurrentRole(role);
-              const newRoleConfig = getRoleConfig(role);
-              if (!newRoleConfig.canRequest && (activeView === 'intention' || activeView === 'audience' || activeView === 'review' || activeView === 'push' || activeView === 'request-fieldvoice')) {
-                setActiveView('home');
-              }
-            }}
+            userName={loggedInUser.name}
             collapsed={leftCollapsed}
             onToggleCollapse={() => setLeftCollapsed(!leftCollapsed)}
             myParticipation={participationWithState}
@@ -301,24 +301,25 @@ export default function Home() {
               />
             )}
 
-            {activeView === 'daily-brief' && (
-              emptyDailyBrief.actions.length > 0 ? (
-                <DailyBriefNotebook brief={emptyDailyBrief} />
-              ) : (
-                <div className="py-12 text-center">
-                  <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-muted">
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-text-muted">No daily brief yet</p>
-                  <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
-                    The daily brief will populate once you push a FieldVoices survey and start receiving responses.
-                  </p>
-                </div>
-              )
+            {activeView === 'survey-invite' && (
+              <SurveyInvitePanel
+                onAccept={(method, cadence) => {
+                  setSurveyAccepted(true);
+                  setSurveyMethod(method);
+                  setActiveView('survey-response');
+                }}
+              />
             )}
+
+            {activeView === 'daily-brief' && (
+              <DailyBriefNotebook
+                brief={emptyDailyBrief}
+                canEdit={roleConfig.canRequest}
+                userName={loggedInUser.name}
+              />
+            )}
+
+            {activeView === 'survey-bank' && <SurveyBank />}
 
             {activeView === 'archive' && (
               <div className="space-y-4">
@@ -327,98 +328,61 @@ export default function Home() {
               </div>
             )}
 
-            {/* Work Plan */}
-            {activeView === 'workplan' && (
-              <div className="space-y-5">
-                <div className="rounded-lg p-3 border border-border-subtle bg-navy-800/30">
-                  <p className="text-xs text-text-muted leading-relaxed">
-                    Action items derived from your FieldVoices surveys. These can be exported to your department workplan, calendar, or meeting agenda.
-                  </p>
-                </div>
-                {emptyDailyBrief.actions.length > 0 ? (
-                  <WorkPlanCard
-                    actions={emptyDailyBrief.actions}
-                    followUps={[]}
-                  />
-                ) : (
-                  <div className="py-12 text-center">
-                    <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-muted">
-                        <path d="M9 11l3 3L22 4" />
-                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-                      </svg>
+            {activeView === 'home' && (() => {
+              const quote = getRotatingQuote();
+              return (
+                <div className="space-y-8">
+                  {/* Personalized greeting + quote */}
+                  <div className="py-6 text-center">
+                    <h2 className="text-xl font-semibold text-text-primary mb-6">
+                      Welcome back, {loggedInUser.name.split(' ')[0]}
+                    </h2>
+
+                    {/* Daily quote card */}
+                    <div className="max-w-lg mx-auto rounded-lg border border-gold-500/20 bg-navy-800/40 p-5 mb-8">
+                      <p className="text-sm text-text-secondary italic leading-relaxed mb-2">
+                        &ldquo;{quote.text}&rdquo;
+                      </p>
+                      <p className="text-xs text-gold-400">&mdash; {quote.attribution}</p>
                     </div>
-                    <p className="text-sm text-text-muted">No action items yet</p>
-                    <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
-                      Work plan items will appear here once surveys generate themes and recommended actions.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {activeView === 'home' && (
-              <div className="space-y-8">
-                <div className="py-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-navy-800 border border-border-gold flex items-center justify-center gold-shimmer">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-semibold text-text-primary mb-2">
-                    Welcome to your workspace
-                  </h2>
-                  <p className="text-sm text-text-secondary max-w-md mx-auto mb-8">
-                    Select an action from the left panel. {roleConfig.canRequest ? 'Request a FieldVoices survey or submit a Be Heard.' : 'Submit a Be Heard to share your voice.'}
-                  </p>
-
-                  {/* Quick action cards on home */}
-                  <div className="flex gap-4 justify-center max-w-md mx-auto">
-                    {roleConfig.canRequest && (
+                    {/* Quick action cards */}
+                    <div className="flex gap-4 justify-center max-w-md mx-auto">
+                      {roleConfig.canRequest && (
+                        <button
+                          onClick={() => setActiveView('intention')}
+                          className="card-gold flex-1 p-5 text-left hover:shadow-[0_4px_20px_var(--gold-glow)] transition-all"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500 mb-2">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                            <path d="M8 12l2 2 4-4" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-text-primary">Request FieldVoices</h3>
+                          <p className="text-xs text-text-muted mt-1">Create a survey</p>
+                        </button>
+                      )}
                       <button
-                        onClick={() => setActiveView('intention')}
+                        onClick={() => setActiveView('be-heard')}
                         className="card-gold flex-1 p-5 text-left hover:shadow-[0_4px_20px_var(--gold-glow)] transition-all"
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500 mb-2">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-                          <path d="M8 12l2 2 4-4" />
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
-                        <h3 className="text-sm font-semibold text-text-primary">Request FieldVoices</h3>
-                        <p className="text-xs text-text-muted mt-1">Create a survey</p>
+                        <h3 className="text-sm font-semibold text-text-primary">Be Heard</h3>
+                        <p className="text-xs text-text-muted mt-1">Share your voice</p>
                       </button>
-                    )}
-                    <button
-                      onClick={() => setActiveView('be-heard')}
-                      className="card-gold flex-1 p-5 text-left hover:shadow-[0_4px_20px_var(--gold-glow)] transition-all"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500 mb-2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                      <h3 className="text-sm font-semibold text-text-primary">Be Heard</h3>
-                      <p className="text-xs text-text-muted mt-1">Share your voice</p>
-                    </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Home — compact work plan preview (empty state) */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Recent Work Plan Items</h3>
-                    <button
-                      onClick={() => setActiveView('workplan')}
-                      className="text-[10px] text-gold-400 hover:text-gold-300 transition-colors"
-                    >
-                      View all &rarr;
-                    </button>
-                  </div>
-                  <div className="card-surface p-3">
-                    <p className="text-xs text-text-muted text-center py-4">
-                      No action items yet &mdash; create your first FieldVoices survey to get started.
-                    </p>
-                  </div>
+                  {/* Role-based plan section */}
+                  {roleConfig.canRequest ? (
+                    <MyImpactPlan userName={loggedInUser.name} />
+                  ) : (
+                    <YourContributions userName={loggedInUser.name} />
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Progress checklist - compact, below survey actions */}
             {isSurveyFlow && !pushed && (
@@ -463,6 +427,28 @@ export default function Home() {
                     <path d="M9 18l6-6-6-6" />
                   </svg>
                 </button>
+              </div>
+
+              {/* Current Request for FieldVoices — stats */}
+              <div className="p-4 space-y-3 border-b border-border-subtle">
+                <h4 className="text-xs font-medium text-gold-400">Current Request for FieldVoices</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-2 rounded-lg bg-navy-800/40 border border-border-subtle">
+                    <p className="text-sm font-bold text-text-primary">0</p>
+                    <p className="text-[9px] text-text-muted">Active</p>
+                  </div>
+                  <div className="text-center p-2 rounded-lg bg-navy-800/40 border border-border-subtle">
+                    <p className="text-sm font-bold text-text-primary">0</p>
+                    <p className="text-[9px] text-text-muted">Participants</p>
+                  </div>
+                  <div className="text-center p-2 rounded-lg bg-navy-800/40 border border-border-subtle">
+                    <p className="text-sm font-bold text-text-primary">0%</p>
+                    <p className="text-[9px] text-text-muted">Response</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-text-muted">
+                  Stats update in real-time as surveys are active and responses flow in.
+                </p>
               </div>
 
               {/* Shared results — top concerns (empty state) */}

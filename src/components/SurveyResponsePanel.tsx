@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { SurveyQuestion } from '@/lib/types';
+import { useVoiceRecording } from '@/lib/useVoiceRecording';
 
 interface SurveyResponsePanelProps {
   surveyTitle: string;
@@ -12,6 +13,8 @@ interface SurveyResponsePanelProps {
 }
 
 type ResponsePhase = 'question' | 'follow-up' | 'anything-else' | 'complete';
+
+const MAX_VOICE_SECONDS = 300; // 5 minutes
 
 export default function SurveyResponsePanel({
   surveyTitle,
@@ -27,34 +30,10 @@ export default function SurveyResponsePanel({
   const [response, setResponse] = useState('');
   const [followUpResponse, setFollowUpResponse] = useState('');
   const [anythingElse, setAnythingElse] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [allDone, setAllDone] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const voice = useVoiceRecording();
 
-  const MAX_VOICE_SECONDS = 300; // 5 minutes
   const currentQuestion = includedQuestions[currentIndex] || null;
-
-  // Voice recording timer
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          if (prev >= MAX_VOICE_SECONDS - 1) {
-            setIsRecording(false);
-            return MAX_VOICE_SECONDS;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRecording]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -65,15 +44,13 @@ export default function SurveyResponsePanel({
   const handleSubmitResponse = () => {
     setPhase('follow-up');
     setResponse('');
-    setRecordingSeconds(0);
-    setIsRecording(false);
+    voice.clearRecording();
   };
 
   const handleSubmitFollowUp = () => {
     setPhase('anything-else');
     setFollowUpResponse('');
-    setRecordingSeconds(0);
-    setIsRecording(false);
+    voice.clearRecording();
   };
 
   const handleSkipFollowUp = () => {
@@ -99,17 +76,16 @@ export default function SurveyResponsePanel({
       setResponse('');
       setFollowUpResponse('');
       setAnythingElse('');
-      setRecordingSeconds(0);
-      setIsRecording(false);
+      voice.clearRecording();
     }
   };
 
   const toggleRecording = () => {
-    if (isRecording) {
-      setIsRecording(false);
+    if (voice.isRecording) {
+      voice.stopRecording();
     } else {
-      setRecordingSeconds(0);
-      setIsRecording(true);
+      voice.clearRecording();
+      voice.startRecording();
     }
   };
 
@@ -317,14 +293,14 @@ export default function SurveyResponsePanel({
                 <button
                   onClick={toggleRecording}
                   className={`absolute right-3 top-3 p-2 rounded-lg border transition-all ${
-                    isRecording
+                    voice.isRecording
                       ? 'bg-alert-rose/20 border-alert-rose/50 text-alert-rose glow-pulse'
                       : 'bg-navy-700 border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/40'
                   }`}
-                  title={isRecording ? 'Stop recording' : 'Start voice recording'}
+                  title={voice.isRecording ? 'Stop recording' : 'Start voice recording'}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    {isRecording ? (
+                    {voice.isRecording ? (
                       <rect x="6" y="6" width="12" height="12" rx="2" />
                     ) : (
                       <>
@@ -340,23 +316,23 @@ export default function SurveyResponsePanel({
             </div>
 
             {/* Recording indicator */}
-            {isRecording && (
+            {voice.isRecording && (
               <div className="flex items-center gap-3 mt-2 px-3 py-2 rounded-lg bg-alert-rose/10 border border-alert-rose/20">
                 <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse flex-shrink-0" />
                 <span className="text-xs text-alert-rose font-medium">Recording</span>
                 <span className="text-xs text-text-muted ml-auto">
-                  {formatTime(recordingSeconds)} / {formatTime(MAX_VOICE_SECONDS)}
+                  {formatTime(voice.duration)} / {formatTime(MAX_VOICE_SECONDS)}
                 </span>
                 <div className="w-24 h-1 rounded-full bg-navy-700 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-alert-rose transition-all"
-                    style={{ width: `${(recordingSeconds / MAX_VOICE_SECONDS) * 100}%` }}
+                    style={{ width: `${(voice.duration / MAX_VOICE_SECONDS) * 100}%` }}
                   />
                 </div>
               </div>
             )}
 
-            {method === 'voice' && !isRecording && (
+            {method === 'voice' && !voice.isRecording && (
               <p className="text-[10px] text-text-muted mt-1.5 italic">
                 Max 5 min verbal response. Tap the mic to start.
               </p>
@@ -405,14 +381,14 @@ export default function SurveyResponsePanel({
               <button
                 onClick={toggleRecording}
                 className={`absolute right-3 top-3 p-2 rounded-lg border transition-all ${
-                  isRecording
+                  voice.isRecording
                     ? 'bg-alert-rose/20 border-alert-rose/50 text-alert-rose glow-pulse'
                     : 'bg-navy-700 border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/40'
                 }`}
-                title={isRecording ? 'Stop recording' : 'Start voice recording'}
+                title={voice.isRecording ? 'Stop recording' : 'Start voice recording'}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  {isRecording ? (
+                  {voice.isRecording ? (
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                   ) : (
                     <>
@@ -427,12 +403,12 @@ export default function SurveyResponsePanel({
             )}
           </div>
 
-          {isRecording && (
+          {voice.isRecording && (
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-alert-rose/10 border border-alert-rose/20">
               <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse flex-shrink-0" />
               <span className="text-xs text-alert-rose font-medium">Recording</span>
               <span className="text-xs text-text-muted ml-auto">
-                {formatTime(recordingSeconds)} / {formatTime(MAX_VOICE_SECONDS)}
+                {formatTime(voice.duration)} / {formatTime(MAX_VOICE_SECONDS)}
               </span>
             </div>
           )}
@@ -484,14 +460,14 @@ export default function SurveyResponsePanel({
               <button
                 onClick={toggleRecording}
                 className={`absolute right-3 top-3 p-2 rounded-lg border transition-all ${
-                  isRecording
+                  voice.isRecording
                     ? 'bg-alert-rose/20 border-alert-rose/50 text-alert-rose glow-pulse'
                     : 'bg-navy-700 border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/40'
                 }`}
-                title={isRecording ? 'Stop recording' : 'Start voice recording'}
+                title={voice.isRecording ? 'Stop recording' : 'Start voice recording'}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  {isRecording ? (
+                  {voice.isRecording ? (
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                   ) : (
                     <>
@@ -506,12 +482,12 @@ export default function SurveyResponsePanel({
             )}
           </div>
 
-          {isRecording && (
+          {voice.isRecording && (
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-alert-rose/10 border border-alert-rose/20">
               <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse flex-shrink-0" />
               <span className="text-xs text-alert-rose font-medium">Recording</span>
               <span className="text-xs text-text-muted ml-auto">
-                {formatTime(recordingSeconds)} / {formatTime(MAX_VOICE_SECONDS)}
+                {formatTime(voice.duration)} / {formatTime(MAX_VOICE_SECONDS)}
               </span>
             </div>
           )}

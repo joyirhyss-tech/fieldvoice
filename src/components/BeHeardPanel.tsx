@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BeHeardRequest, BeHeardStatusUpdate } from '@/lib/types';
+import { useVoiceRecording } from '@/lib/useVoiceRecording';
 
 const ROUTE_INFO = [
   { range: '0–39', label: 'Director of Programs', color: 'text-text-secondary' },
@@ -16,6 +17,7 @@ export default function BeHeardPanel() {
   const [showTracker, setShowTracker] = useState(false);
   const [submissions, setSubmissions] = useState<BeHeardRequest[]>([]);
   const statuses: BeHeardStatusUpdate[] = [];
+  const voice = useVoiceRecording();
 
   const handleSubmit = () => {
     if (!content.trim()) return;
@@ -173,17 +175,39 @@ export default function BeHeardPanel() {
             aria-describedby="be-heard-help"
           />
           <button
-            className="absolute right-3 top-3 p-1.5 rounded-lg bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/40 transition-colors"
-            aria-label="Start voice recording"
+            onClick={() => voice.isRecording ? voice.stopRecording() : voice.startRecording()}
+            className={`absolute right-3 top-3 p-1.5 rounded-lg border transition-colors ${
+              voice.isRecording
+                ? 'bg-alert-rose/20 border-alert-rose/40 text-alert-rose glow-pulse'
+                : 'bg-navy-700 border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/40'
+            }`}
+            aria-label={voice.isRecording ? 'Stop voice recording' : 'Start voice recording'}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
+            {voice.isRecording ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
           </button>
         </div>
+        {voice.isRecording && (
+          <div className="flex items-center gap-2 mt-1.5 px-2 py-1 rounded bg-alert-rose/10 border border-alert-rose/20">
+            <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse" />
+            <span className="text-[10px] text-alert-rose font-medium">Recording {voice.formatDuration(voice.duration)}</span>
+          </div>
+        )}
+        {voice.audioUrl && !voice.isRecording && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <audio src={voice.audioUrl} controls className="h-8 flex-1" />
+            <button onClick={voice.clearRecording} className="text-[10px] text-text-muted hover:text-alert-rose transition-colors">Clear</button>
+          </div>
+        )}
+        {voice.error && <p className="text-[10px] text-alert-rose mt-1">{voice.error}</p>}
         <p id="be-heard-help" className="text-[11px] text-text-muted mt-1.5">
           Your submission is anonymous and scored automatically. Higher urgency items are routed to senior leadership. You can track the status of your submissions after submitting.
         </p>

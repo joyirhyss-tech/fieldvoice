@@ -125,6 +125,10 @@ export type WorkspaceView =
   | 'request-fieldvoice'
   | 'be-heard'
   | 'survey-response'
+  | 'survey-invite'
+  | 'my-impact-plan'
+  | 'your-contributions'
+  | 'survey-bank'
   | 'intention'
   | 'audience'
   | 'review'
@@ -160,4 +164,72 @@ export interface BeHeardStatusUpdate {
   updatedAt: string;
   /** When an issue was already resolved but not communicated */
   actionType?: 'new-action' | 'communicate-existing' | 'training-needed';
+}
+
+/** Staff document (JD, resume, etc.) */
+export interface StaffDocument {
+  label: string;
+  fileName: string;
+}
+
+/** Staff member — real person in the organization */
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: UserRole;
+  accessCode: string;
+  photoUrl?: string;
+  documents: StaffDocument[];
+  createdAt: string;
+}
+
+/** Logged-in user session */
+export interface LoggedInUser {
+  staffId: string;
+  name: string;
+  role: UserRole;
+}
+
+/** Leadership note (memo, voicenote, video) */
+export interface LeadershipNote {
+  id: string;
+  memo: string;
+  voiceUrl?: string;
+  videoUrl?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+/** Survey template for the Survey Bank */
+export type SurveyCategory = 'internal' | 'program' | 'community';
+
+export interface SurveyTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: SurveyCategory;
+  recommendedAudience: string[];
+  frequencyGuidance: string;
+  bestPracticeNotes: string;
+  questions: SurveyQuestion[];
+}
+
+/** Individual question in the Question Bank */
+export interface QuestionBankItem {
+  id: string;
+  text: string;
+  type: QuestionType;
+  topic: string;
+  category: SurveyCategory;
+  source: 'practice-center' | 'custom';
+}
+
+/** Nudge — a scheduled prompt delivered to survey participants */
+export interface Nudge {
+  id: string;
+  surveyId: string;
+  questionId: string;
+  deliveredAt: string;
+  completedAt: string | null;
+  dismissed: boolean;
 }

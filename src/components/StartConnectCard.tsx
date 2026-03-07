@@ -3,12 +3,17 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useSettings } from '@/lib/useSettings';
+import { useStaffStore } from '@/lib/useStaffStore';
+import { LoggedInUser, StaffMember } from '@/lib/types';
+import { getRoleConfig } from '@/lib/roles';
+import StaffManager from '@/components/StaffManager';
+import ProfileCard from '@/components/ProfileCard';
 
 interface StartConnectCardProps {
-  onConnect: () => void;
+  onConnect: (user: LoggedInUser) => void;
 }
 
-type Step = 'landing' | 'settings' | 'welcome';
+type Step = 'landing' | 'settings' | 'welcome' | 'login' | 'profile';
 type SettingsTab = 'documents' | 'roles' | 'connection';
 
 interface UploadSlot {
@@ -22,15 +27,16 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
   const [step, setStep] = useState<Step>('landing');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('documents');
   const { settings, updateSettings } = useSettings();
+  const { staff } = useStaffStore();
 
-  // Local state for connection fields — initialized from persisted settings
+  // Connection fields
   const [databaseType, setDatabaseType] = useState<'supabase' | 'custom' | ''>(settings.databaseType);
   const [databaseUrl, setDatabaseUrl] = useState(settings.databaseUrl);
   const [supabaseAnonKey, setSupabaseAnonKey] = useState(settings.supabaseAnonKey);
   const [llmProvider, setLlmProvider] = useState<'anthropic' | 'openai' | ''>(settings.llmProvider);
   const [llmApiKey, setLlmApiKey] = useState(settings.llmApiKey);
 
-  // Documents state — initialized from persisted settings
+  // Documents fields
   const [agencyName, setAgencyName] = useState(settings.agencyName);
   const [agencyContext, setAgencyContext] = useState(settings.agencyContext);
   const [uploads, setUploads] = useState<UploadSlot[]>([
@@ -41,7 +47,11 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     { key: 'background', label: 'Background / Reference', description: 'Program guides, org charts, reference materials', file: null },
   ]);
 
-  // Sync local state back to persisted settings whenever they change
+  // Login state
+  const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [codeError, setCodeError] = useState(false);
+
   useEffect(() => {
     setDatabaseType(settings.databaseType);
     setDatabaseUrl(settings.databaseUrl);
@@ -50,7 +60,6 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     setLlmApiKey(settings.llmApiKey);
     setAgencyName(settings.agencyName);
     setAgencyContext(settings.agencyContext);
-    // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -62,18 +71,38 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
 
   const saveSettings = () => {
     updateSettings({
-      databaseType,
-      databaseUrl,
-      supabaseAnonKey,
-      llmProvider,
-      llmApiKey,
-      agencyName,
-      agencyContext,
+      databaseType, databaseUrl, supabaseAnonKey,
+      llmProvider, llmApiKey, agencyName, agencyContext,
     });
     setStep('welcome');
   };
 
-  // ── Step 1: Landing — Logo + Connect button ───────────────
+  const handleSelectMember = (member: StaffMember) => {
+    setSelectedMember(member);
+    setAccessCodeInput('');
+    setCodeError(false);
+  };
+
+  const handleCodeSubmit = () => {
+    if (!selectedMember) return;
+    // Bypass for now — accept any 3-digit code
+    if (accessCodeInput.length === 3) {
+      setStep('profile');
+    } else {
+      setCodeError(true);
+    }
+  };
+
+  const handleEnterApp = () => {
+    if (!selectedMember) return;
+    onConnect({
+      staffId: selectedMember.id,
+      name: selectedMember.name,
+      role: selectedMember.role,
+    });
+  };
+
+  // ── Step 1: Landing ───────────────────────────────────────
   if (step === 'landing') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deep">
@@ -82,25 +111,22 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             <Image
               src="/fieldvoices-logo.png"
               alt="FieldVoices"
-              width={424}
-              height={139}
+              width={465}
+              height={187}
               className="mx-auto"
               priority
               unoptimized
             />
           </div>
-
           <p className="text-text-secondary text-sm leading-relaxed mb-10 max-w-xs mx-auto">
             Smart listening, synthesis, and implementation for mission-driven organizations
           </p>
-
           <button
             onClick={() => setStep('settings')}
             className="btn-gold w-full max-w-xs mx-auto py-3.5 px-8 rounded-lg text-sm block"
           >
             Connect FieldVoices
           </button>
-
           <p className="mt-6 text-center text-xs text-text-muted">
             Mission2Impact Library
           </p>
@@ -126,18 +152,133 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             FieldVoices is ready. Your setup is saved and accessible anytime in Settings.
           </p>
           <button
-            onClick={onConnect}
+            onClick={() => {
+              if (staff.length > 0) {
+                setStep('login');
+              } else {
+                // No staff added yet — enter as a generic admin
+                onConnect({ staffId: 'admin', name: 'Admin', role: 'ed' });
+              }
+            }}
             className="btn-gold w-full py-3.5 px-6 rounded-lg text-sm"
           >
             Enter FieldVoices
           </button>
+          {staff.length === 0 && (
+            <p className="mt-4 text-[10px] text-text-muted">
+              No staff added yet — you&apos;ll enter as Admin. Add staff in Settings to enable personal logins.
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
+  // ── Step 4: Login — "Who's logging in?" ───────────────────
+  if (step === 'login') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-deep p-4">
+        <div className="card-surface max-w-lg w-full overflow-hidden">
+          <div className="px-6 py-5 border-b border-border-subtle text-center">
+            <h1 className="text-lg font-bold text-text-primary mb-1">Who&apos;s logging in?</h1>
+            <p className="text-xs text-text-muted">Select your name to access your personal workspace</p>
+          </div>
+
+          <div className="p-6 max-h-[60vh] overflow-y-auto">
+            {selectedMember ? (
+              /* Access code entry */
+              <div className="text-center py-4">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-navy-800 border-2 border-border-gold flex items-center justify-center">
+                  <span className="text-lg font-bold text-gold-500">
+                    {selectedMember.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </span>
+                </div>
+                <h2 className="text-sm font-semibold text-text-primary mb-1">{selectedMember.name}</h2>
+                <p className="text-xs text-gold-400 mb-6">{getRoleConfig(selectedMember.role).label}</p>
+
+                <div className="max-w-[180px] mx-auto">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+                    Enter 3-digit code
+                  </label>
+                  <input
+                    type="text"
+                    value={accessCodeInput}
+                    onChange={(e) => {
+                      setAccessCodeInput(e.target.value.replace(/\D/g, '').slice(0, 3));
+                      setCodeError(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCodeSubmit();
+                    }}
+                    maxLength={3}
+                    className="input-navy w-full px-4 py-3 text-center text-lg font-mono tracking-[0.5em] font-semibold"
+                    placeholder="•••"
+                    autoFocus
+                  />
+                  {codeError && (
+                    <p className="text-xs text-alert-rose mt-2">Enter a 3-digit code</p>
+                  )}
+                </div>
+
+                <div className="mt-6 flex gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      setSelectedMember(null);
+                      setAccessCodeInput('');
+                    }}
+                    className="px-4 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    &larr; Back
+                  </button>
+                  <button
+                    onClick={handleCodeSubmit}
+                    disabled={accessCodeInput.length < 3}
+                    className="btn-gold px-6 py-2 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Staff list */
+              <div className="space-y-2">
+                {staff.map((member) => {
+                  const role = getRoleConfig(member.role);
+                  return (
+                    <button
+                      key={member.id}
+                      onClick={() => handleSelectMember(member)}
+                      className="w-full flex items-center gap-3 rounded-lg bg-navy-800/40 hover:bg-navy-800 border border-border-subtle hover:border-gold-500/30 px-4 py-3 transition-all text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-navy-700 border border-border-subtle flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold text-text-primary">
+                          {member.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
+                        <p className="text-xs text-text-muted">{role.label}</p>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted flex-shrink-0">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 5: Profile Card ──────────────────────────────────
+  if (step === 'profile' && selectedMember) {
+    return <ProfileCard member={selectedMember} onEnter={handleEnterApp} />;
+  }
+
   // ── Step 2: Full Settings ─────────────────────────────────
-  // Tabs ordered: Documents → Users & Roles → Connection
   const tabs: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'documents',
@@ -178,34 +319,25 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
       <div className="card-surface max-w-2xl w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setStep('landing')}
-              className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-xs transition-colors"
-              aria-label="Back to landing"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-          </div>
+          <button
+            onClick={() => setStep('landing')}
+            className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-xs transition-colors"
+            aria-label="Back to landing"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
           <div className="text-center">
             <h1 className="text-lg font-bold text-text-primary">Settings & Setup</h1>
             <p className="text-xs text-text-muted">Configure your FieldVoices connection</p>
           </div>
-          {/* Bypass / Skip button */}
           <button
             onClick={() => {
-              // Save whatever they've entered so far
               updateSettings({
-                databaseType,
-                databaseUrl,
-                supabaseAnonKey,
-                llmProvider,
-                llmApiKey,
-                agencyName,
-                agencyContext,
+                databaseType, databaseUrl, supabaseAnonKey,
+                llmProvider, llmApiKey, agencyName, agencyContext,
               });
               setStep('welcome');
             }}
@@ -235,34 +367,15 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
 
         {/* Tab content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {/* ── Documents Tab (first) ────────────────────────── */}
+          {/* Documents Tab */}
           {settingsTab === 'documents' && (
             <div className="space-y-4">
-              {/* Agency context */}
               <div className="card-surface p-4 mb-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                  Agency Name
-                </label>
-                <input
-                  type="text"
-                  value={agencyName}
-                  onChange={(e) => setAgencyName(e.target.value)}
-                  placeholder="Your organization name"
-                  className="input-navy w-full px-3 py-2 text-sm mb-3"
-                />
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                  Agency Context
-                </label>
-                <textarea
-                  value={agencyContext}
-                  onChange={(e) => setAgencyContext(e.target.value)}
-                  placeholder="Describe your organization's mission, population served, and key context..."
-                  rows={3}
-                  className="input-navy w-full px-3 py-2 text-sm resize-none"
-                />
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Agency Name</label>
+                <input type="text" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} placeholder="Your organization name" className="input-navy w-full px-3 py-2 text-sm mb-3" />
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Agency Context</label>
+                <textarea value={agencyContext} onChange={(e) => setAgencyContext(e.target.value)} placeholder="Describe your organization's mission, population served, and key context..." rows={3} className="input-navy w-full px-3 py-2 text-sm resize-none" />
               </div>
-
-              {/* Document upload slots */}
               {uploads.map((slot) => (
                 <div key={slot.key} className="card-surface p-4">
                   <div className="flex items-start justify-between">
@@ -270,14 +383,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
                       <h4 className="text-sm font-medium text-text-primary">{slot.label}</h4>
                       <p className="text-xs text-text-muted mt-0.5">{slot.description}</p>
                     </div>
-                    <button
-                      onClick={() => handleUpload(slot.key)}
-                      className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${
-                        slot.file
-                          ? 'bg-accent-sage-light text-accent-sage border border-accent-sage/20'
-                          : 'btn-navy'
-                      }`}
-                    >
+                    <button onClick={() => handleUpload(slot.key)} className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${slot.file ? 'bg-accent-sage-light text-accent-sage border border-accent-sage/20' : 'btn-navy'}`}>
                       {slot.file ? 'Uploaded' : 'Upload'}
                     </button>
                   </div>
@@ -295,55 +401,17 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             </div>
           )}
 
-          {/* ── Users & Roles Tab (second) ──────────────────── */}
-          {settingsTab === 'roles' && (
-            <div className="space-y-4">
-              <p className="text-sm text-text-secondary mb-2">
-                Configure team members and their roles. Role assignment controls visibility, workflow access, and action routing.
-              </p>
-              {[
-                { role: 'Executive Director', description: 'Full visibility, approvals, strategic oversight', count: 1 },
-                { role: 'EVP', description: 'Operational oversight, cross-department view', count: 1 },
-                { role: 'Director of Programs', description: 'Request surveys, review synthesis, manage follow-ups', count: 2 },
-                { role: 'Site Supervisor', description: 'Site-level surveys, team feedback access', count: 4 },
-                { role: 'Direct Service', description: 'Respond to surveys, Be Heard submissions', count: 12 },
-                { role: 'Program Team', description: 'Collaborative input, workplan visibility', count: 3 },
-              ].map((r) => (
-                <div key={r.role} className="card-surface p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium text-text-primary">{r.role}</h4>
-                      <p className="text-xs text-text-muted mt-0.5">{r.description}</p>
-                      <p className="text-xs text-text-muted mt-1">{r.count} member{r.count !== 1 ? 's' : ''}</p>
-                    </div>
-                    <button className="btn-navy px-3 py-1.5 rounded-lg text-xs flex-shrink-0">
-                      Manage
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Users & Roles Tab — Staff CRUD */}
+          {settingsTab === 'roles' && <StaffManager />}
 
-          {/* ── Connection Tab (last) ────────────────────────── */}
+          {/* Connection Tab */}
           {settingsTab === 'connection' && (
             <div className="space-y-6">
-              {/* Database section */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-                  Database
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Database</label>
                 <div className="flex gap-2 mb-3">
                   {(['supabase', 'custom'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setDatabaseType(type)}
-                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
-                        databaseType === type
-                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
-                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
-                      }`}
-                    >
+                    <button key={type} onClick={() => setDatabaseType(type)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${databaseType === type ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]' : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'}`}>
                       {type === 'supabase' ? 'Supabase' : 'Custom DB'}
                     </button>
                   ))}
@@ -351,49 +419,23 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
                 {databaseType && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-text-muted mb-1">
-                        {databaseType === 'supabase' ? 'Project URL' : 'Connection String'}
-                      </label>
-                      <input
-                        type="text"
-                        value={databaseUrl}
-                        onChange={(e) => setDatabaseUrl(e.target.value)}
-                        placeholder={databaseType === 'supabase' ? 'https://your-project.supabase.co' : 'postgresql://...'}
-                        className="input-navy w-full px-3 py-2 text-sm"
-                      />
+                      <label className="block text-xs text-text-muted mb-1">{databaseType === 'supabase' ? 'Project URL' : 'Connection String'}</label>
+                      <input type="text" value={databaseUrl} onChange={(e) => setDatabaseUrl(e.target.value)} placeholder={databaseType === 'supabase' ? 'https://your-project.supabase.co' : 'postgresql://...'} className="input-navy w-full px-3 py-2 text-sm" />
                     </div>
                     {databaseType === 'supabase' && (
                       <div>
                         <label className="block text-xs text-text-muted mb-1">Anon Key</label>
-                        <input
-                          type="password"
-                          value={supabaseAnonKey}
-                          onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                          className="input-navy w-full px-3 py-2 text-sm"
-                        />
+                        <input type="password" value={supabaseAnonKey} onChange={(e) => setSupabaseAnonKey(e.target.value)} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." className="input-navy w-full px-3 py-2 text-sm" />
                       </div>
                     )}
                   </div>
                 )}
               </div>
-
-              {/* LLM provider section */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-                  LLM Synthesis Engine
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">LLM Synthesis Engine</label>
                 <div className="flex gap-2 mb-3">
                   {(['anthropic', 'openai'] as const).map((provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => setLlmProvider(provider)}
-                      className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${
-                        llmProvider === provider
-                          ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]'
-                          : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'
-                      }`}
-                    >
+                    <button key={provider} onClick={() => setLlmProvider(provider)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${llmProvider === provider ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]' : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'}`}>
                       {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
                     </button>
                   ))}
@@ -401,13 +443,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
                 {llmProvider && (
                   <div>
                     <label className="block text-xs text-text-muted mb-1">API Key</label>
-                    <input
-                      type="password"
-                      value={llmApiKey}
-                      onChange={(e) => setLlmApiKey(e.target.value)}
-                      placeholder={`${llmProvider === 'anthropic' ? 'sk-ant-' : 'sk-'}...`}
-                      className="input-navy w-full px-3 py-2 text-sm"
-                    />
+                    <input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder={`${llmProvider === 'anthropic' ? 'sk-ant-' : 'sk-'}...`} className="input-navy w-full px-3 py-2 text-sm" />
                   </div>
                 )}
               </div>
@@ -415,16 +451,11 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
           )}
         </div>
 
-        {/* Footer — Save & Continue */}
+        {/* Footer */}
         <div className="px-6 py-4 border-t border-border-subtle bg-navy-900/50">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={saveSettings}
-              className="btn-gold flex-1 py-3 px-6 rounded-lg text-sm"
-            >
-              Save & Continue
-            </button>
-          </div>
+          <button onClick={saveSettings} className="btn-gold w-full py-3 px-6 rounded-lg text-sm">
+            Save & Continue
+          </button>
           <p className="mt-3 text-center text-xs text-text-muted">
             You can update these settings anytime from the header
           </p>
