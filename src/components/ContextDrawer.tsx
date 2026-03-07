@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 
-export default function ContextDrawer() {
+interface ContextDrawerProps {
+  canEdit?: boolean;
+}
+
+export default function ContextDrawer({ canEdit = true }: ContextDrawerProps) {
   const [note, setNote] = useState('');
   const [savedNotes, setSavedNotes] = useState<{ text: string; time: string }[]>([
     { text: 'Summer schedule changes may affect response rates — check with HR on contract windows before next push.', time: '2026-03-05' },
@@ -18,23 +22,29 @@ export default function ContextDrawer() {
   return (
     <div className="card-surface p-4 space-y-3">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Context Notes</h4>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addNote()}
-          placeholder="Add a context note..."
-          className="input-navy flex-1 px-3 py-1.5 text-sm"
-        />
-        <button
-          onClick={addNote}
-          disabled={!note.trim()}
-          className="btn-navy px-3 py-1.5 rounded-lg text-sm disabled:opacity-40"
-        >
-          Add
-        </button>
-      </div>
+
+      {/* Input — tier-1 only */}
+      {canEdit && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addNote()}
+            placeholder="Add a context note..."
+            className="input-navy flex-1 px-3 py-1.5 text-sm"
+          />
+          <button
+            onClick={addNote}
+            disabled={!note.trim()}
+            className="btn-navy px-3 py-1.5 rounded-lg text-sm disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {/* Notes list — visible to all */}
       <div className="space-y-2">
         {savedNotes.map((n, i) => (
           <div key={i} className="px-3 py-2 rounded-lg bg-navy-800">

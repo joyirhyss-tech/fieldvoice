@@ -6,14 +6,33 @@ interface SurveyInvitePanelProps {
   onAccept?: (method: string, cadence: string) => void;
 }
 
+// Cadence → nudge count for a 14-day window
+const CADENCE_NUDGES: Record<string, number> = {
+  daily: 14,
+  'every-other': 7,
+  'twice-weekly': 4,
+  weekly: 2,
+};
+
+const CADENCE_LABELS: Record<string, string> = {
+  daily: 'daily',
+  'every-other': 'every other day',
+  'twice-weekly': 'twice a week',
+  weekly: 'weekly',
+};
+
 export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) {
+  const [demoMode, setDemoMode] = useState(false);
   const [selectedCadence, setSelectedCadence] = useState('daily');
   const [selectedMethod, setSelectedMethod] = useState('desktop');
   const [showThankYou, setShowThankYou] = useState(false);
   const [showCreatorNotes, setShowCreatorNotes] = useState(false);
 
-  // Empty state — no pending survey invitations
-  const hasPendingSurvey = false;
+  // Demo survey data
+  const demoEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const demoEndLabel = demoEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const nudgeCount = CADENCE_NUDGES[selectedCadence] || 10;
 
   // Thank You interstitial after accepting
   if (showThankYou) {
@@ -41,7 +60,7 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
             <ul className="space-y-2 text-xs text-text-secondary">
               <li className="flex items-start gap-2">
                 <span className="text-accent-sage mt-0.5">&#x2022;</span>
-                You will receive nudges via text up to <strong className="text-text-primary">10 times</strong> between now and the survey end date
+                You will receive up to <strong className="text-text-primary">{nudgeCount} nudges</strong> ({CADENCE_LABELS[selectedCadence]}) between now and {demoEndLabel}
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-accent-sage mt-0.5">&#x2022;</span>
@@ -70,7 +89,7 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
             <div className="rounded-lg bg-navy-800/50 p-4 border-l-2 border-gold-500/30 text-left mb-4">
               <p className="text-xs text-text-muted mb-1">Notes from the survey creator:</p>
               <p className="text-xs text-text-secondary italic leading-relaxed">
-                Additional context from the survey creator will appear here when available.
+                We&apos;ve noticed some patterns in recent team conversations that we want to better understand. This survey is designed to give everyone a safe, anonymous way to share how they&apos;re really doing. Your honesty helps us make meaningful changes.
               </p>
             </div>
           )}
@@ -86,7 +105,8 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
     );
   }
 
-  if (!hasPendingSurvey) {
+  // Empty state — no pending survey invitations
+  if (!demoMode) {
     return (
       <div className="py-12 text-center">
         <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-navy-800 border border-border-subtle flex items-center justify-center">
@@ -98,16 +118,39 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
           </svg>
         </div>
         <h3 className="text-base font-semibold text-text-primary mb-2">No Survey Invitations</h3>
-        <p className="text-sm text-text-muted max-w-sm mx-auto">
+        <p className="text-sm text-text-muted max-w-sm mx-auto mb-6">
           When a FieldVoices survey is sent to you, it will appear here. You&apos;ll choose your preferred cadence and response method before participating.
         </p>
+        <button
+          onClick={() => setDemoMode(true)}
+          className="text-xs text-gold-400 hover:text-gold-300 transition-colors underline underline-offset-2"
+        >
+          Preview the invite experience &rarr;
+        </button>
       </div>
     );
   }
 
-  // When a survey exists, show the full invite panel
+  // Demo survey invite
   return (
     <div className="max-w-lg mx-auto space-y-6">
+      {/* Demo banner + back link */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => {
+            setDemoMode(false);
+            setShowThankYou(false);
+            setShowCreatorNotes(false);
+          }}
+          className="text-xs text-text-muted hover:text-text-primary transition-colors"
+        >
+          &larr; Back to empty state
+        </button>
+        <span className="text-[10px] uppercase tracking-wider text-gold-400 bg-gold-500/10 border border-gold-500/20 px-2 py-0.5 rounded">
+          Preview
+        </span>
+      </div>
+
       <div className="card-gold p-6">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-2.5 h-2.5 rounded-full bg-accent-sage glow-pulse" />
@@ -117,20 +160,20 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
         </div>
 
         <h3 className="text-lg font-semibold text-text-primary mb-2">
-          Survey Title
+          Staff Wellbeing Check-In
         </h3>
 
         {/* Owner info */}
         <div className="rounded-lg bg-navy-800/50 p-3 border-l-2 border-accent-sage/40 mb-4">
-          <p className="text-xs text-text-muted mb-0.5">From survey creator</p>
+          <p className="text-xs text-text-muted mb-0.5">From Maya Johnson, Executive Director</p>
           <p className="text-xs text-text-secondary italic leading-relaxed">
-            &ldquo;Personal message from the survey creator will appear here.&rdquo;
+            &ldquo;We want to understand how everyone is feeling and what we can do better. Your honest feedback will directly shape our next steps.&rdquo;
           </p>
         </div>
 
         {/* Window */}
         <div className="text-xs text-text-muted mb-4">
-          Survey Window: Start Date &mdash; End Date
+          Survey Window: {todayLabel} &mdash; {demoEndLabel}
         </div>
 
         {/* Cadence selector */}
@@ -158,6 +201,9 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-text-muted mt-2">
+            You&apos;ll receive up to <strong className="text-text-primary">{nudgeCount} nudges</strong> over the survey window
+          </p>
         </div>
 
         {/* Method selector */}
@@ -198,7 +244,7 @@ export default function SurveyInvitePanel({ onAccept }: SurveyInvitePanelProps) 
           onClick={() => setShowThankYou(true)}
           className="w-full px-4 py-3 rounded-lg text-sm font-medium bg-accent-sage text-white hover:bg-accent-sage/90 transition-all shadow-[0_2px_12px_rgba(92,184,139,0.3)]"
         >
-          Accept & Start Listening
+          Accept &amp; Start Listening
         </button>
       </div>
     </div>

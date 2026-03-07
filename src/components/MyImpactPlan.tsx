@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 
 interface MyImpactPlanProps {
   userName: string;
 }
+
+type ToastType = 'success' | 'info';
 
 const PUSH_BUTTONS = [
   { key: 'calendar', label: 'Calendar', icon: '📅' },
@@ -20,6 +22,14 @@ export default function MyImpactPlan({ userName }: MyImpactPlanProps) {
   const [notes, setNotes] = useLocalStorage<string>('fieldvoices-impact-notes', '');
   const [additionalItems, setAdditionalItems] = useLocalStorage<string[]>('fieldvoices-impact-items', []);
   const [newItem, setNewItem] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const handleAddItem = () => {
     if (!newItem.trim()) return;
@@ -31,8 +41,110 @@ export default function MyImpactPlan({ userName }: MyImpactPlanProps) {
     setAdditionalItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Gather all pushable content as a formatted text block
+  const getPushContent = (): string => {
+    const lines: string[] = ['FieldVoices — My Impact Plan', `Prepared by: ${userName}`, `Date: ${new Date().toLocaleDateString()}`, ''];
+
+    if (additionalItems.length > 0) {
+      lines.push('ACTION ITEMS:');
+      additionalItems.forEach((item, i) => lines.push(`  ${i + 1}. ${item}`));
+      lines.push('');
+    }
+
+    if (notes.trim()) {
+      lines.push('NOTES:');
+      lines.push(notes.trim());
+      lines.push('');
+    }
+
+    if (additionalItems.length === 0 && !notes.trim()) {
+      lines.push('No action items or notes yet.');
+    }
+
+    return lines.join('\n');
+  };
+
+  // Generate and download .ics calendar file
+  const handleCalendar = () => {
+    const content = getPushContent();
+    const now = new Date();
+    const reviewDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const formatICSDate = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+    const endDate = new Date(reviewDate.getTime() + 60 * 60 * 1000); // 1 hour event
+
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//FieldVoices//Impact Plan//EN',
+      'BEGIN:VEVENT',
+      `DTSTART:${formatICSDate(reviewDate)}`,
+      `DTEND:${formatICSDate(endDate)}`,
+      'SUMMARY:FieldVoices: Review Impact Plan',
+      `DESCRIPTION:${content.replace(/\n/g, '\\n')}`,
+      `UID:fieldvoices-${Date.now()}@fieldvoices.app`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fieldvoices-impact-plan.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setToast({ message: '✓ Calendar event downloaded', type: 'success' });
+  };
+
+  // Open mailto: with push content
+  const handleEmail = () => {
+    const content = getPushContent();
+    const subject = encodeURIComponent('FieldVoices — My Impact Plan');
+    const body = encodeURIComponent(content);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+    setToast({ message: '✓ Opening email client', type: 'success' });
+  };
+
+  // Copy to clipboard
+  const handleAgenda = async () => {
+    const content = getPushContent();
+    try {
+      await navigator.clipboard.writeText(content);
+      setToast({ message: '✓ Copied — paste into your agenda', type: 'success' });
+    } catch {
+      setToast({ message: 'Could not copy — try again', type: 'info' });
+    }
+  };
+
+  // Coming soon handlers
+  const handleComingSoon = (label: string) => {
+    setToast({ message: `Coming soon — will integrate with ${label}`, type: 'info' });
+  };
+
+  const handlePush = (key: string, label: string) => {
+    switch (key) {
+      case 'calendar':
+        handleCalendar();
+        break;
+      case 'email':
+        handleEmail();
+        break;
+      case 'agenda':
+        handleAgenda();
+        break;
+      default:
+        handleComingSoon(label);
+    }
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
       {/* Section header */}
       <div className="flex items-center gap-2">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
@@ -127,6 +239,7 @@ export default function MyImpactPlan({ userName }: MyImpactPlanProps) {
           {PUSH_BUTTONS.map((btn) => (
             <button
               key={btn.key}
+              onClick={() => handlePush(btn.key, btn.label)}
               className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border border-border-subtle bg-navy-800/40 hover:bg-navy-800 hover:border-gold-500/30 transition-all text-center"
             >
               <span className="text-lg">{btn.icon}</span>
@@ -143,6 +256,19 @@ export default function MyImpactPlan({ userName }: MyImpactPlanProps) {
           No entries yet &mdash; this section will show concrete actions taken in response to staff feedback, creating a visible accountability loop.
         </p>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-lg text-sm font-medium shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 ${
+            toast.type === 'success'
+              ? 'bg-accent-sage text-white shadow-[0_4px_16px_rgba(92,184,139,0.3)]'
+              : 'bg-navy-800 text-gold-400 border border-gold-500/30 shadow-[0_4px_16px_rgba(201,168,76,0.15)]'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

@@ -52,29 +52,31 @@ export default function DailyBriefNotebook({ brief, canEdit = false, userName = 
           )
         )}
 
-        {/* Voice / Video placeholders */}
-        <div className="flex gap-2">
-          <button
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle bg-navy-800/40 text-xs text-text-muted hover:text-text-primary hover:border-border-medium transition-colors"
-            title="Record voicenote"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            </svg>
-            Voicenote
-          </button>
-          <button
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle bg-navy-800/40 text-xs text-text-muted hover:text-text-primary hover:border-border-medium transition-colors"
-            title="Record short video"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="23 7 16 12 23 17 23 7" />
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-            Video
-          </button>
-        </div>
+        {/* Voice / Video placeholders — tier-1 only */}
+        {canEdit && (
+          <div className="flex gap-2">
+            <button
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle bg-navy-800/40 text-xs text-text-muted hover:text-text-primary hover:border-border-medium transition-colors"
+              title="Record voicenote"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              </svg>
+              Voicenote
+            </button>
+            <button
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle bg-navy-800/40 text-xs text-text-muted hover:text-text-primary hover:border-border-medium transition-colors"
+              title="Record short video"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="23 7 16 12 23 17 23 7" />
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+              </svg>
+              Video
+            </button>
+          </div>
+        )}
       </div>
 
       {brief.themes.length > 0 && (

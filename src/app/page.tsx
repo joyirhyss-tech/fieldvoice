@@ -394,7 +394,7 @@ export default function Home() {
             {/* Context notes - shown in workspace below main content */}
             {(activeView === 'daily-brief' || activeView === 'home') && (
               <div className="mt-6">
-                <ContextDrawer />
+                <ContextDrawer canEdit={roleConfig.canRequest} />
               </div>
             )}
           </div>
