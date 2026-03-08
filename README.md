@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FieldVoices
 
-## Getting Started
+**Turns feedback into themes, themes into shared action, and shared action into trust.**
 
-First, run the development server:
+Live: [fieldvoices.netlify.app](https://fieldvoices.netlify.app)
+
+## What It Does
+
+FieldVoices is the missing layer between collecting feedback and acting on it. Nonprofits drown in surveys from funders, compliance bodies, staff, and communities — but no tool connects what people say to what happens next. FieldVoices does.
+
+- **My Impact Plan** — AI-synthesized, prioritized action items from survey themes, anonymous feedback, and KPIs
+- **Be Heard** — Anonymous feedback with visible accountability: Received → Under Review → Action Taken
+- **Create Survey** — 4-step wizard grounded in your own policies and documents
+- **The Ripple** — A 60-second breathing exercise before acting on urgent items, because the hardest feedback deserves the clearest mind
+- **Shared Impact** — Mission metrics, voice health, and time saved — all in one view
+
+## Tech Stack
+
+- **Next.js 16** + **React 19** + **TypeScript**
+- **Tailwind CSS v4** design system
+- **Supabase** database
+- **Anthropic Claude** — AI synthesis engine (survey → themes → prioritized actions)
+- **Netlify** deployment
+- **Claude Code (Opus)** — pair-programmed the entire application
+
+## Run Locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [localhost:3000](http://localhost:3000). Click **Explore the Demo** for sample data or **Sign In** for the empty admin setup.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Built By
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+AIdedEQ — Mission2Impact Library
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built in 48 hours for the Sabrina Ramonov + Marcin Teodoru AI Hackathon, March 2026.
