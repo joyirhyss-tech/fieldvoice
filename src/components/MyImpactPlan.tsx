@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import BreathingExercise from '@/components/BreathingExercise';
+import DemoInfoTip from '@/components/DemoInfoTip';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { synthesizeActions, getActionsForRole, generateForwardPlan } from '@/lib/synthesis';
 import {
@@ -406,7 +407,10 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
           <rect x="9" y="3" width="6" height="4" rx="1" />
           <path d="M9 14l2 2 4-4" />
         </svg>
-        <h3 className="text-sm font-semibold text-text-primary">My Impact Plan</h3>
+        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+          My Impact Plan
+          {demoMode && <DemoInfoTip tipKey="impact-plan" />}
+        </h3>
       </div>
 
       {/* Description */}
@@ -501,9 +505,12 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
                       <span className="ml-2 text-text-muted font-normal">({lane.items.length})</span>
                     </h4>
                     {isImmediate && onBreathingStart ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gold-400 chevron-heartbeat">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
+                      <span className="flex items-center gap-1">
+                        {demoMode && <DemoInfoTip tipKey="fireflies" position="left" />}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gold-400 chevron-heartbeat">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
                     ) : (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-text-muted transition-transform ${expandedLanes[lane.key] ? 'rotate-180' : ''}`}>
                         <polyline points="6 9 12 15 18 9" />

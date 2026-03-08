@@ -35,6 +35,7 @@ import ViewTransition from '@/components/ViewTransition';
 import VoiceStewardDashboard from '@/components/VoiceStewardDashboard';
 import GettingStartedCard from '@/components/GettingStartedCard';
 import PeopleClusterIcon from '@/components/PeopleClusterIcon';
+import DemoInfoTip from '@/components/DemoInfoTip';
 import { synthesizeActions, getActionsForRole } from '@/lib/synthesis';
 import { getDocumentContentByCategory } from '@/lib/useDocumentStore';
 import {
@@ -327,6 +328,22 @@ export default function Home() {
     }
   };
 
+  // Info tip key for workspace header — only for non-obvious features
+  const getInfoTipKey = (): string => {
+    switch (activeView) {
+      case 'request-fieldvoice':
+      case 'intention':
+      case 'audience':
+      case 'review':
+      case 'push':
+        return 'create-survey';
+      case 'be-heard':
+        return 'be-heard';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-bg-deep">
       {/* Skip to main content — accessibility */}
@@ -442,7 +459,10 @@ export default function Home() {
           <div className="max-w-3xl mx-auto p-4 md:p-6">
             {/* Workspace header */}
             <div className="flex items-center justify-between mb-5 pb-3 border-b border-border-subtle">
-              <h2 className="text-lg font-semibold text-text-primary">{getWorkspaceTitle()}</h2>
+              <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                {getWorkspaceTitle()}
+                {demoMode && getInfoTipKey() && <DemoInfoTip tipKey={getInfoTipKey()} />}
+              </h2>
               {activeView === 'daily-brief' && (
                 <span className="text-xs text-text-muted">{emptyDailyBrief.date}</span>
               )}
@@ -915,7 +935,10 @@ export default function Home() {
 
               {/* Shared results — top concerns */}
               <div className="p-4 space-y-3 border-b border-border-subtle">
-                <h4 className="text-xs font-medium text-text-secondary">Top Repeated Concerns</h4>
+                <h4 className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
+                  Top Repeated Concerns
+                  {demoMode && <DemoInfoTip tipKey="top-concerns" position="left" />}
+                </h4>
                 {demoMode ? (
                   <>
                     <button
@@ -999,7 +1022,10 @@ export default function Home() {
                             <path d="M2 12l10 5 10-5" />
                           </svg>
                         </div>
-                        <span className="text-xs font-semibold text-gold-400">Shared Impact</span>
+                        <span className="text-xs font-semibold text-gold-400 flex items-center gap-1.5">
+                          Shared Impact
+                          {demoMode && <DemoInfoTip tipKey="shared-impact" position="left" />}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         {!metricsRevealed && demoMode && (
