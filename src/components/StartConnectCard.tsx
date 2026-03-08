@@ -9,17 +9,19 @@ import { getRoleConfig } from '@/lib/roles';
 interface StartConnectCardProps {
   onConnect: (user: LoggedInUser) => void;
   demoMode?: boolean;
+  liveAdmin?: boolean;
 }
 
 type Step = 'landing' | 'name-entry' | 'pin-setup' | 'pin-entry';
 
-export default function StartConnectCard({ onConnect, demoMode }: StartConnectCardProps) {
-  const [step, setStep] = useState<Step>(demoMode ? 'name-entry' : 'landing');
+export default function StartConnectCard({ onConnect, demoMode, liveAdmin }: StartConnectCardProps) {
+  const prefill = demoMode || liveAdmin;
+  const [step, setStep] = useState<Step>(prefill ? 'name-entry' : 'landing');
   const { staff, setPin, findByName } = useStaffStore();
 
-  // Name entry state — pre-filled in demo mode
-  const [firstName, setFirstName] = useState(demoMode ? 'Lauralani' : '');
-  const [lastName, setLastName] = useState(demoMode ? 'Reece' : '');
+  // Name entry state — pre-filled in demo/liveAdmin mode
+  const [firstName, setFirstName] = useState(demoMode ? 'Lauralani' : liveAdmin ? 'Admin' : '');
+  const [lastName, setLastName] = useState(demoMode ? 'Reece' : liveAdmin ? 'User' : '');
   const [nameError, setNameError] = useState('');
   const [matchedMember, setMatchedMember] = useState<StaffMember | null>(null);
 
@@ -36,6 +38,16 @@ export default function StartConnectCard({ onConnect, demoMode }: StartConnectCa
   const handleNameSubmit = () => {
     if (!firstName.trim() || !lastName.trim()) {
       setNameError('Please enter both first and last name.');
+      return;
+    }
+    // Live admin bypass — no staff lookup needed, go straight to workspace
+    if (liveAdmin) {
+      onConnect({
+        staffId: 'admin',
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        role: 'ed',
+        sessionCreatedAt: new Date().toISOString(),
+      });
       return;
     }
     const member = findByName(firstName, lastName);

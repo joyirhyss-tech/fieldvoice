@@ -218,9 +218,9 @@ export default function Home() {
     setLoggedInUser(null);
   }, [setLoggedInUser]);
 
-  // Validate session: check that staffId still exists in staff roster
+  // Validate session: check that staffId still exists in staff roster (skip admin)
   useEffect(() => {
-    if (loggedInUser) {
+    if (loggedInUser && loggedInUser.staffId !== 'admin') {
       try {
         const staffRaw = localStorage.getItem('fieldvoices-staff');
         if (staffRaw) {
@@ -291,15 +291,8 @@ export default function Home() {
     if (demoMode) {
       return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
     }
-    // Real tool: auto-connect as admin
-    const defaultUser: LoggedInUser = {
-      staffId: 'admin',
-      name: 'Administrator',
-      role: 'ed',
-      sessionCreatedAt: new Date().toISOString(),
-    };
-    setLoggedInUser(defaultUser);
-    return null;
+    // Live mode: show login with Admin pre-filled for click-through
+    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} liveAdmin />;
   }
 
   // Determine workspace title and content — i18n-aware
