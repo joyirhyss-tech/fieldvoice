@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       rawResponse = await callOpenAI(llmApiKey, userPrompt);
     }
 
-    // Parse the JSON response — strip any markdown fences if present
+    // Parse the JSON response: strip any markdown fences if present
     const cleaned = rawResponse
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')

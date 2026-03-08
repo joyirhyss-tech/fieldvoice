@@ -4,7 +4,7 @@
  * FieldVoices i18n Framework
  *
  * Equity-forward multilingual support. This framework was designed with
- * frontline workers in mind — many of whom speak languages other than
+ * frontline workers in mind, many of whom speak languages other than
  * English as their primary language.
  *
  * Architecture:
@@ -32,7 +32,7 @@ import es from './es';
 const translations: Record<SupportedLocale, Partial<TranslationStrings>> = {
   en,
   es,
-  // Skeleton entries — create the files when community translators contribute
+  // Skeleton entries: create the files when community translators contribute
   fr: {},
   ht: {},
   zh: {},
@@ -89,7 +89,7 @@ interface LanguageContextType {
   locale: SupportedLocale;
   /** Switch to a different locale */
   setLocale: (locale: SupportedLocale) => void;
-  /** Translation function — use this in components */
+  /** Translation function: use this in components */
   t: (key: string, params?: Record<string, string | number>) => string;
   /** Text direction for current locale */
   dir: 'ltr' | 'rtl';

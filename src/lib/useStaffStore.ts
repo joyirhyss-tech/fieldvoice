@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocalStorage } from './useLocalStorage';
-import { StaffMember, StaffDocument, UserRole } from './types';
+import { StaffMember, StaffDocument, UserRole, SurveyCadence } from './types';
 
 const STORAGE_KEY = 'fieldvoices-staff';
 
@@ -44,6 +44,26 @@ export function useStaffStore() {
   const getStaffById = (id: string): StaffMember | undefined =>
     staff.find((s) => s.id === id);
 
+  /** Find a staff member by first + last name (case-insensitive) */
+  const findByName = (firstName: string, lastName: string): StaffMember | undefined => {
+    const fn = firstName.trim().toLowerCase();
+    const ln = lastName.trim().toLowerCase();
+    return staff.find((m) => {
+      const parts = m.name.toLowerCase().split(/\s+/);
+      return parts[0] === fn && parts[parts.length - 1] === ln;
+    });
+  };
+
+  /** Set a staff member's 4-digit PIN */
+  const setPin = (staffId: string, pin: string) => {
+    updateStaff(staffId, { pin });
+  };
+
+  /** Set a staff member's survey cadence preference */
+  const setCadence = (staffId: string, cadence: SurveyCadence) => {
+    updateStaff(staffId, { surveyCadence: cadence });
+  };
+
   return {
     staff,
     addStaff,
@@ -51,5 +71,8 @@ export function useStaffStore() {
     removeStaff,
     getStaffByRole,
     getStaffById,
+    findByName,
+    setPin,
+    setCadence,
   };
 }

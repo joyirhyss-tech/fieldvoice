@@ -20,7 +20,7 @@ export default function MetricTicker({ shoutOuts }: MetricTickerProps) {
 
   return (
     <div
-      className="w-full bg-navy-900 border-t border-border-subtle overflow-hidden h-10 flex items-center"
+      className="w-full bg-navy-900 border-t border-gold-500/15 overflow-hidden h-10 flex items-center"
       role="marquee"
       aria-label="Leadership shout-outs and positive updates"
       aria-live="off"

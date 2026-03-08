@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { WorkspaceView, UserRole } from '@/lib/types';
 import { getRoleConfig } from '@/lib/roles';
 import LanguageSelector from '@/components/LanguageSelector';
+import PeopleClusterIcon from '@/components/PeopleClusterIcon';
 
 interface LiveCampaign {
   id: string;
@@ -51,6 +52,7 @@ interface ActionRailProps {
   myParticipation?: MyParticipation;
   liveStatus?: LiveStatus;
   onAcceptSurvey?: (method?: string) => void;
+  onLogout?: () => void;
 }
 
 export default function ActionRail({
@@ -63,6 +65,7 @@ export default function ActionRail({
   myParticipation,
   liveStatus,
   onAcceptSurvey,
+  onLogout,
 }: ActionRailProps) {
   const [liveExpanded, setLiveExpanded] = useState(false);
   const [surveyExpanded, setSurveyExpanded] = useState(false);
@@ -79,15 +82,17 @@ export default function ActionRail({
           onClick={onToggleCollapse}
           className="p-2 rounded-lg hover:bg-navy-800 text-text-muted hover:text-gold-400 transition-colors mb-4"
           title="Expand panel"
+          aria-expanded="false"
+          aria-label="Expand navigation panel"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
         {/* Collapsed live count */}
         {totalLive > 0 && (
           <div className="w-8 h-8 rounded-lg bg-navy-800 border border-gold-500/30 flex items-center justify-center mb-2 cursor-pointer hover:border-gold-500/50 transition-colors" title={`${totalLive} live FieldVoices`}>
-            <span className="text-[10px] font-bold text-gold-400">{totalLive}</span>
+            <span className="text-[11px] font-bold text-gold-400">{totalLive}</span>
           </div>
         )}
         {/* Collapsed participation dot */}
@@ -118,8 +123,10 @@ export default function ActionRail({
           onClick={onToggleCollapse}
           className="p-1 rounded hover:bg-navy-800 text-text-muted hover:text-text-primary transition-colors"
           title="Collapse panel"
+          aria-expanded="true"
+          aria-label="Collapse navigation panel"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
@@ -127,21 +134,44 @@ export default function ActionRail({
 
       {/* 1. Logged-in user badge */}
       <div className="px-3 py-3 border-b border-border-subtle">
-        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-navy-800/50">
+        <button
+          onClick={() => onSelectView('home')}
+          className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg bg-navy-800/50 hover:bg-navy-800 transition-colors cursor-pointer"
+          title="Go to Home"
+        >
           <div className="w-8 h-8 rounded-full bg-navy-700 border border-border-gold flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-bold text-gold-400">
+            <span className="text-[11px] font-bold text-gold-400">
               {userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
             </span>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 text-left">
             <p className="text-xs font-medium text-text-primary truncate">{userName}</p>
-            <p className="text-[10px] text-gold-400">{roleConfig.label}</p>
+            <p className="text-xs text-gold-400">{roleConfig.label}</p>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* 2-3. Primary action buttons */}
       <div className="px-3 py-4 space-y-2">
+        {/* My Impact Plan — hero button for Tier 1 leaders */}
+        {roleConfig.canRequest && (
+          <button
+            onClick={() => {
+              onSelectView('home');
+              setTimeout(() => {
+                document.getElementById('impact-plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-lg text-left text-sm font-semibold transition-all bg-gradient-to-r from-gold-500/20 to-gold-500/10 border border-gold-500/40 text-gold-400 hover:border-gold-500/60 hover:from-gold-500/25 hover:to-gold-500/15 hover:shadow-[0_0_16px_var(--gold-glow)] group"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-400 group-hover:scale-110 transition-transform">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            My Impact Plan
+          </button>
+        )}
+
         {roleConfig.canRequest && (
           <button
             onClick={() => onSelectView('request-fieldvoice')}
@@ -151,11 +181,8 @@ export default function ActionRail({
                 : 'btn-navy'
             }`}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-              <path d="M8 12l2 2 4-4" />
-            </svg>
-            Request FieldVoices
+            <PeopleClusterIcon size={18} />
+            Create Survey
           </button>
         )}
 
@@ -173,7 +200,7 @@ export default function ActionRail({
           Be Heard
         </button>
 
-        {/* 4. Your Voices Needed — compact button with badge */}
+        {/* 4. Your Voice Is Needed — compact button with badge */}
         <button
           onClick={() => onSelectView('survey-invite')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium transition-all ${
@@ -188,9 +215,9 @@ export default function ActionRail({
             <line x1="12" y1="19" x2="12" y2="23" />
             <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
-          <span className="flex-1">Your Voices Needed</span>
+          <span className="flex-1">Your Voice Is Needed</span>
           {pendingQuestions > 0 && (
-            <span className="w-5 h-5 rounded-full bg-accent-sage text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 glow-pulse">
+            <span className="w-5 h-5 rounded-full bg-accent-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 glow-pulse">
               {pendingQuestions}
             </span>
           )}
@@ -215,10 +242,10 @@ export default function ActionRail({
         </button>
 
         {liveExpanded && liveStatus && liveStatus.campaigns.length > 0 && (
-          <div className="mt-2 space-y-1.5">
+          <div className="mt-2 space-y-2.5">
             {liveStatus.campaigns.map((campaign) => (
               <div key={campaign.id} className="rounded-lg bg-navy-800/60 p-2 border border-border-subtle">
-                <p className="text-[10px] text-text-primary font-medium truncate">{campaign.title}</p>
+                <p className="text-xs text-text-primary font-medium truncate">{campaign.title}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex-1 h-1 rounded-full bg-navy-700 overflow-hidden">
                     <div
@@ -226,9 +253,9 @@ export default function ActionRail({
                       style={{ width: `${Math.round((campaign.responses / campaign.participants) * 100)}%` }}
                     />
                   </div>
-                  <span className="text-[9px] text-text-muted">{campaign.responses}/{campaign.participants}</span>
+                  <span className="text-[11px] text-text-muted">{campaign.responses}/{campaign.participants}</span>
                 </div>
-                <p className="text-[9px] text-text-muted mt-0.5">{campaign.daysLeft}d left</p>
+                <p className="text-[11px] text-text-muted mt-0.5">{campaign.daysLeft}d left</p>
               </div>
             ))}
           </div>
@@ -241,7 +268,7 @@ export default function ActionRail({
       </div>
 
       {/* 7-8. Secondary nav */}
-      <nav className="flex-1 px-3 py-3 space-y-1">
+      <nav className="flex-1 px-3 py-3 space-y-2">
         <button
           onClick={() => onSelectView('daily-brief')}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${

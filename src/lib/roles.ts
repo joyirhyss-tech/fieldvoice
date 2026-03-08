@@ -44,7 +44,7 @@ export const ROLES: RoleOption[] = [
   {
     value: 'program_team',
     label: 'Program Team',
-    description: 'Accountant, HR, Development — operational support',
+    description: 'Accountant, HR, Development: operational support',
     canRequest: false,
     canBeHeard: true,
     canViewAggregate: true, // Equity: all roles see anonymized themes
@@ -52,7 +52,7 @@ export const ROLES: RoleOption[] = [
   {
     value: 'voice_steward',
     label: 'Voice Steward',
-    description: 'Trusted peer advocate — escalation protocol, mandatory reporting, raw-response access',
+    description: 'Trusted peer advocate: escalation protocol, mandatory reporting, raw-response access',
     canRequest: false,
     canBeHeard: true,
     canViewAggregate: true,

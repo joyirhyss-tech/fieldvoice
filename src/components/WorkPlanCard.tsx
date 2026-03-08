@@ -48,22 +48,22 @@ export default function WorkPlanCard({ actions, followUps }: WorkPlanCardProps) 
 
         {/* Export / Push actions */}
         <div className="mt-3 pt-2 border-t border-border-subtle flex flex-wrap gap-1.5">
-          <button className="px-2 py-1 rounded text-[10px] font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
+          <button className="px-2 py-1 rounded text-xs font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
             Export to calendar
           </button>
-          <button className="px-2 py-1 rounded text-[10px] font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
+          <button className="px-2 py-1 rounded text-xs font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
             Push to workplan
           </button>
-          <button className="px-2 py-1 rounded text-[10px] font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
+          <button className="px-2 py-1 rounded text-xs font-medium bg-navy-700 border border-border-subtle text-text-muted hover:text-gold-400 hover:border-gold-500/30 transition-colors">
             Agenda items
           </button>
         </div>
       </div>
 
       {followUps.length > 0 && (
-        <div className="card-surface p-3">
+        <div className="card-surface p-4">
           <h4 className="text-xs font-medium text-text-secondary mb-2">Follow-ups</h4>
-          <div className="space-y-1.5">
+          <div className="space-y-2.5">
             {followUps.map((fu) => (
               <div key={fu.id} className="flex items-center gap-2 text-xs">
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -78,7 +78,7 @@ export default function WorkPlanCard({ actions, followUps }: WorkPlanCardProps) 
       )}
 
       {/* You Said / We Did — gold glow standout */}
-      <div className="rounded-lg p-3 border border-gold-500/30 bg-navy-800 shadow-[0_0_16px_rgba(201,168,76,0.12),inset_0_1px_0_rgba(201,168,76,0.08)]">
+      <div className="rounded-lg p-4 border border-gold-500/30 bg-navy-800 shadow-[0_0_16px_rgba(201,168,76,0.12),inset_0_1px_0_rgba(201,168,76,0.08)]">
         <h4 className="text-xs font-semibold text-gold-400 mb-1.5">You Said / We Did</h4>
         <p className="text-xs text-text-primary">
           &ldquo;Onboarding docs outdated&rdquo; &rarr; Packet updated with current contacts

@@ -60,7 +60,7 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
     <div className="space-y-5">
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-          Who should be heard?
+          Whose input is needed?
         </label>
         <div className="flex flex-wrap gap-2">
           {allGroups.map((group) => {
@@ -77,7 +77,7 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
                 }`}
               >
                 {group}
-                {isCustom && <span className="ml-1 text-[10px] opacity-60">*</span>}
+                {isCustom && <span className="ml-1 text-[11px] opacity-60">*</span>}
               </button>
             );
           })}
@@ -162,7 +162,7 @@ export default function AudiencePanel({ draft, onUpdate, onNext, onBack }: Audie
           disabled={!canProceed}
           className="btn-gold px-5 py-2 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >
-          Next: Review
+          Next: Questions
         </button>
       </div>
     </div>

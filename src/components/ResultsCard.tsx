@@ -49,7 +49,7 @@ export default function ResultsCard({ themes, activeCampaign, collapsed, onToggl
       <div className="p-4 space-y-4">
         {activeCampaign ? (
           <>
-            <div className="card-surface p-3">
+            <div className="card-surface p-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs text-text-secondary">Participation</span>
                 <span className="text-xs font-medium text-gold-400">{responseRate}%</span>
@@ -65,9 +65,9 @@ export default function ResultsCard({ themes, activeCampaign, collapsed, onToggl
               </p>
             </div>
 
-            <div className="card-surface p-3">
+            <div className="card-surface p-4">
               <h4 className="text-xs font-medium text-text-secondary mb-2">Top repeated concerns</h4>
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {topThemes.map((t) => (
                   <div key={t.id} className="flex items-center gap-2">
                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${

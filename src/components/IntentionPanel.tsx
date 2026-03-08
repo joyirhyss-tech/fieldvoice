@@ -51,16 +51,16 @@ export default function IntentionPanel({ draft, onUpdate, onNext }: IntentionPan
         {voice.isRecording && (
           <div className="flex items-center gap-2 mt-1.5 px-2 py-1 rounded bg-alert-rose/10 border border-alert-rose/20">
             <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse" />
-            <span className="text-[10px] text-alert-rose font-medium">Recording {voice.formatDuration(voice.duration)}</span>
+            <span className="text-[11px] text-alert-rose font-medium">Recording {voice.formatDuration(voice.duration)}</span>
           </div>
         )}
         {voice.audioUrl && !voice.isRecording && (
           <div className="flex items-center gap-2 mt-1.5">
             <audio src={voice.audioUrl} controls className="h-8 flex-1" />
-            <button onClick={voice.clearRecording} className="text-[10px] text-text-muted hover:text-alert-rose transition-colors">Clear</button>
+            <button onClick={voice.clearRecording} className="text-xs text-text-muted hover:text-alert-rose transition-colors">Clear</button>
           </div>
         )}
-        {voice.error && <p className="text-[10px] text-alert-rose mt-1">{voice.error}</p>}
+        {voice.error && <p className="text-xs text-alert-rose mt-1">{voice.error}</p>}
       </div>
 
       <div>
@@ -82,7 +82,7 @@ export default function IntentionPanel({ draft, onUpdate, onNext }: IntentionPan
           disabled={!canProceed}
           className="btn-gold px-5 py-2 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >
-          Next: Who should be heard?
+          Next: Whose input is needed?
         </button>
       </div>
     </div>

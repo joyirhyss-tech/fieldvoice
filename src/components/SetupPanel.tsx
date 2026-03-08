@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StaffManager from '@/components/StaffManager';
+import { useDocumentStore } from '@/lib/useDocumentStore';
+import { AgencyDocCategory } from '@/lib/types';
 
 interface SetupPanelProps {
   open: boolean;
@@ -10,35 +12,67 @@ interface SetupPanelProps {
 
 interface UploadSlot {
   key: string;
+  category: AgencyDocCategory;
   label: string;
   description: string;
   file: string | null;
 }
 
+const SLOT_CATEGORY_MAP: Record<string, AgencyDocCategory> = {
+  policies: 'policies',
+  compliance: 'compliance',
+  mandated: 'mandated-reporting',
+  survey: 'survey-policy',
+  background: 'background',
+};
+
 export default function SetupPanel({ open, onClose }: SetupPanelProps) {
+  const { documents, addDocument, getByCategory } = useDocumentStore();
   const [activeTab, setActiveTab] = useState<'documents' | 'roles' | 'connection'>('documents');
-  const [uploads, setUploads] = useState<UploadSlot[]>([
-    { key: 'policies', label: 'Policies & Procedures', description: 'Core organizational policies', file: null },
-    { key: 'compliance', label: 'Rules & Compliance', description: 'Regulatory and compliance documents', file: null },
-    { key: 'mandated', label: 'Mandated Reporting', description: 'Mandated reporting policies and protocols', file: null },
-    { key: 'survey', label: 'Survey Policy', description: 'Survey frequency, consent, and distribution rules', file: null },
-    { key: 'background', label: 'Background / Reference', description: 'Program guides, org charts, reference materials', file: null },
-  ]);
+
+  // Build upload slots from document store state
+  const uploads: UploadSlot[] = [
+    { key: 'policies', category: 'policies', label: 'Policies & Procedures', description: 'Core organizational policies', file: getByCategory('policies')?.fileName || null },
+    { key: 'compliance', category: 'compliance', label: 'Rules & Compliance', description: 'Regulatory and compliance documents', file: getByCategory('compliance')?.fileName || null },
+    { key: 'mandated', category: 'mandated-reporting', label: 'Mandated Reporting', description: 'Mandated reporting policies and protocols', file: getByCategory('mandated-reporting')?.fileName || null },
+    { key: 'survey', category: 'survey-policy', label: 'Survey Policy', description: 'Survey frequency, consent, and distribution rules', file: getByCategory('survey-policy')?.fileName || null },
+    { key: 'background', category: 'background', label: 'Background / Reference', description: 'Program guides, org charts, reference materials', file: getByCategory('background')?.fileName || null },
+  ];
+
   const [agencyName, setAgencyName] = useState('AIdedEQ');
   const [agencyContext, setAgencyContext] = useState('');
 
   const handleUpload = (key: string) => {
-    setUploads((prev) =>
-      prev.map((u) => (u.key === key ? { ...u, file: `${u.label}.pdf` } : u))
-    );
+    const slot = uploads.find((u) => u.key === key);
+    if (!slot) return;
+    const category = SLOT_CATEGORY_MAP[key] || (key as AgencyDocCategory);
+    // In demo/real mode, this would parse file content.
+    // For now, persist a placeholder document to the store.
+    addDocument({
+      category,
+      label: slot.label,
+      fileName: `${slot.label}.pdf`,
+      content: '',
+      uploadedAt: new Date().toISOString(),
+    });
   };
+
+  // Escape key to close
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Settings">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Panel */}
       <div className="relative ml-auto w-full max-w-xl bg-navy-900 border-l border-border-subtle shadow-2xl h-full overflow-y-auto">
@@ -107,35 +141,42 @@ export default function SetupPanel({ open, onClose }: SetupPanelProps) {
               </div>
 
               {/* Document upload slots */}
-              {uploads.map((slot) => (
-                <div key={slot.key} className="card-surface p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-text-primary">{slot.label}</h4>
-                      <p className="text-xs text-text-muted mt-0.5">{slot.description}</p>
+              {uploads.map((slot) => {
+                const doc = getByCategory(slot.category);
+                const hasContent = doc && doc.content.length > 0;
+                return (
+                  <div key={slot.key} className="card-surface p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-text-primary">{slot.label}</h4>
+                        <p className="text-xs text-text-muted mt-0.5">{slot.description}</p>
+                      </div>
+                      <button
+                        onClick={() => handleUpload(slot.key)}
+                        className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${
+                          slot.file
+                            ? 'bg-accent-sage-light text-accent-sage border border-accent-sage/20'
+                            : 'btn-navy'
+                        }`}
+                      >
+                        {slot.file ? 'Uploaded' : 'Upload'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleUpload(slot.key)}
-                      className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${
-                        slot.file
-                          ? 'bg-accent-sage-light text-accent-sage border border-accent-sage/20'
-                          : 'btn-navy'
-                      }`}
-                    >
-                      {slot.file ? 'Uploaded' : 'Upload'}
-                    </button>
+                    {slot.file && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-sage">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        {slot.file}
+                        {hasContent && (
+                          <span className="text-accent-sage/70">· Content indexed</span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {slot.file && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-sage">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      {slot.file}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

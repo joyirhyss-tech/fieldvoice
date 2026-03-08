@@ -118,7 +118,7 @@ export default function StaffManager() {
                     />
                     {/* Documents */}
                     {member.documents.length > 0 && (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {member.documents.map((doc, i) => (
                           <div key={i} className="flex items-center gap-2 text-xs text-text-muted">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-sage">
@@ -174,7 +174,7 @@ export default function StaffManager() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary truncate">{member.name}</p>
-                      <p className="text-[10px] text-text-muted">
+                      <p className="text-[11px] text-text-muted">
                         Code: •••{member.documents.length > 0 ? ` · ${member.documents.length} doc${member.documents.length !== 1 ? 's' : ''}` : ''}
                       </p>
                     </div>
@@ -259,7 +259,7 @@ export default function StaffManager() {
 
       {/* Tier 1 — Leadership */}
       <div>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gold-400 mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gold-400 mb-2">
           Leadership (can create surveys)
         </h3>
         <div className="space-y-3">
@@ -269,7 +269,7 @@ export default function StaffManager() {
 
       {/* Tier 2 — Staff */}
       <div className="mt-4">
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
           Staff (participate &amp; be heard)
         </h3>
         <div className="space-y-3">

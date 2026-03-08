@@ -1,5 +1,5 @@
 /**
- * English translations — default language
+ * English translations, default language
  *
  * Organized by feature area. Every user-facing string in FieldVoices
  * should be defined here. When adding new UI text, add the key here
@@ -22,7 +22,7 @@ const en: TranslationStrings = {
 
   // ── Navigation / Action Rail ──────────────────────────────
   'nav.yourAttention': 'Your Attention Please',
-  'nav.requestFieldVoices': 'Request FieldVoices',
+  'nav.requestFieldVoices': 'Create Survey',
   'nav.beHeard': 'Be Heard',
   'nav.workPlan': 'Work Plan',
   'nav.dailyBrief': 'Daily Brief',
@@ -42,7 +42,7 @@ const en: TranslationStrings = {
   'survey.hideDetails': '▾ Hide details',
   'survey.viewDetails': '▸ View invite details',
   'survey.from': 'From {name} · {role}',
-  'survey.window': 'Window: {start} — {end}',
+  'survey.window': 'Window: {start} to {end}',
   'survey.cadenceLabel': 'How often would you like nudges?',
   'survey.cadenceDaily': 'Daily',
   'survey.cadenceAltDays': 'Alt Days',
@@ -62,15 +62,15 @@ const en: TranslationStrings = {
   'response.questionOf': 'Question {current} of {total}',
   'response.followUp': 'Follow-up',
   'response.anythingElse': 'Is there anything else you want to add?',
-  'response.anythingElseHint': 'This is your open floor. Share whatever is on your mind — no prompt needed.',
+  'response.anythingElseHint': 'This is your open floor. Share whatever is on your mind, no prompt needed.',
   'response.skip': 'Skip',
   'response.skipFollowUp': 'Skip follow-up',
-  'response.skipOpenFloor': 'Skip — nothing else to add',
+  'response.skipOpenFloor': 'Skip, nothing else to add',
   'response.submitContinue': 'Submit & Continue',
   'response.submitNext': 'Submit & Next Question',
   'response.addThoughts': 'Add your thoughts',
   'response.complete.title': 'Thank you for sharing your voice',
-  'response.complete.message': 'Your responses have been recorded. They will be synthesized with others to create anonymized insights — never individual attribution.',
+  'response.complete.message': 'Your responses have been recorded. They will be synthesized with others to create anonymized insights, never individual attribution.',
   'response.complete.youSaidWeDid': 'Watch for "You Said / We Did" updates to see how your feedback shapes action.',
   'response.complete.returnButton': 'Return to workspace',
   'response.recording': 'Recording…',
@@ -89,7 +89,7 @@ const en: TranslationStrings = {
   'workspace.selectAction': 'Select an action from the left panel.',
   'workspace.canRequest': 'Request a FieldVoices survey or submit a Be Heard.',
   'workspace.cannotRequest': 'Submit a Be Heard to share your voice.',
-  'workspace.requestFieldVoices': 'Request FieldVoices',
+  'workspace.requestFieldVoices': 'Create Survey',
   'workspace.createSurvey': 'Create a survey',
   'workspace.shareVoice': 'Share your voice',
   'workspace.recentWorkPlan': 'Recent Work Plan Items',
@@ -97,7 +97,7 @@ const en: TranslationStrings = {
 
   // ── Be Heard ──────────────────────────────────────────────
   'beHeard.title': 'Be Heard',
-  'beHeard.description': 'Share your concern, idea, or feedback below. Your submission is anonymized — leadership sees the content but not your identity.',
+  'beHeard.description': 'Share your concern, idea, or feedback below. Your submission is anonymized. Leadership sees the content but not your identity.',
   'beHeard.placeholder': 'What would you like leadership to know?',
   'beHeard.submit': 'Submit Be Heard',
   'beHeard.submitted.title': 'Your voice has been received',
@@ -111,7 +111,7 @@ const en: TranslationStrings = {
   'beHeard.status.actionPlanned': 'Action Planned',
   'beHeard.status.resolved': 'Resolved',
   'beHeard.status.communicated': 'Communicated',
-  'beHeard.status.alreadyResolved': 'Already resolved — being communicated',
+  'beHeard.status.alreadyResolved': 'Already resolved, being communicated',
 
   // ── Right Panel ───────────────────────────────────────────
   'rightPanel.agencyWide': 'Agency-Wide',

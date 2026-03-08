@@ -177,11 +177,11 @@ export default function SurveyResponsePanel({
           {/* Question card */}
           <div className="card-surface p-5">
             <div className="flex items-center gap-2 mb-3">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${typeBadge.color}`}>
+              <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${typeBadge.color}`}>
                 {typeBadge.label}
               </span>
               {currentQuestion.source === 'practice-center' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full border border-gold-500/20 text-gold-400 bg-gold-400/5">
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-gold-500/20 text-gold-400 bg-gold-400/5">
                   Practice Center
                 </span>
               )}
@@ -190,7 +190,7 @@ export default function SurveyResponsePanel({
               {currentQuestion.text}
             </p>
             {currentQuestion.designNote && (
-              <p className="text-[10px] text-text-muted mt-2 italic">
+              <p className="text-xs text-text-muted mt-2 italic max-w-[52ch]">
                 {currentQuestion.designNote}
               </p>
             )}
@@ -263,7 +263,7 @@ export default function SurveyResponsePanel({
                       }`}
                     >
                       <span className="text-2xl">{mood.emoji}</span>
-                      <span className="text-[9px] text-text-muted">{mood.label}</span>
+                      <span className="text-[11px] text-text-muted">{mood.label}</span>
                     </button>
                   ))}
                 </div>
@@ -333,7 +333,7 @@ export default function SurveyResponsePanel({
             )}
 
             {method === 'voice' && !voice.isRecording && (
-              <p className="text-[10px] text-text-muted mt-1.5 italic">
+              <p className="text-xs text-text-muted mt-1.5 italic">
                 Max 5 min verbal response. Tap the mic to start.
               </p>
             )}
@@ -357,14 +357,14 @@ export default function SurveyResponsePanel({
         <div className="space-y-5">
           <div className="card-surface p-5">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-gold-500/20 text-gold-400 bg-gold-400/5 font-medium">
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-gold-500/20 text-gold-400 bg-gold-400/5 font-medium">
                 Follow-up
               </span>
             </div>
             <p className="text-base text-text-primary leading-relaxed font-medium">
               {getFollowUpQuestion()}
             </p>
-            <p className="text-[10px] text-text-muted mt-2 italic">
+            <p className="text-xs text-text-muted mt-2 italic max-w-[52ch]">
               This is a follow-up to help us understand your perspective more deeply. You can skip if you prefer.
             </p>
           </div>
@@ -436,14 +436,14 @@ export default function SurveyResponsePanel({
         <div className="space-y-5">
           <div className="card-surface p-5">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-sage/20 text-accent-sage bg-accent-sage/5 font-medium">
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-accent-sage/20 text-accent-sage bg-accent-sage/5 font-medium">
                 Open Floor
               </span>
             </div>
             <p className="text-base text-text-primary leading-relaxed font-medium">
               Is there anything else you want to add?
             </p>
-            <p className="text-[10px] text-text-muted mt-2 italic">
+            <p className="text-xs text-text-muted mt-2 italic max-w-[52ch]">
               This is your space. Anything on your mind — about this topic or anything else — is welcome here.
             </p>
           </div>

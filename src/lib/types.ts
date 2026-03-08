@@ -172,12 +172,34 @@ export interface StaffDocument {
   fileName: string;
 }
 
+/** Agency-level document category — maps to SetupPanel upload slots */
+export type AgencyDocCategory =
+  | 'policies'
+  | 'compliance'
+  | 'mandated-reporting'
+  | 'survey-policy'
+  | 'background';
+
+/** Agency-level document (org-wide policies, procedures, etc.) */
+export interface AgencyDocument {
+  category: AgencyDocCategory;
+  label: string;
+  fileName: string;
+  content: string;
+  uploadedAt: string;
+}
+
+/** Survey cadence preference — how often a user wants nudge prompts */
+export type SurveyCadence = 'daily' | 'alt-days' | 'twice-weekly' | 'weekly';
+
 /** Staff member — real person in the organization */
 export interface StaffMember {
   id: string;
   name: string;
   role: UserRole;
   accessCode: string;
+  pin?: string;                  // 4-digit PIN (replaces accessCode for auth)
+  surveyCadence?: SurveyCadence; // preferred nudge frequency
   photoUrl?: string;
   documents: StaffDocument[];
   createdAt: string;
@@ -188,6 +210,7 @@ export interface LoggedInUser {
   staffId: string;
   name: string;
   role: UserRole;
+  sessionCreatedAt: string;      // ISO timestamp for session freshness
 }
 
 /** Leadership note (memo, voicenote, video) */
@@ -232,4 +255,79 @@ export interface Nudge {
   deliveredAt: string;
   completedAt: string | null;
   dismissed: boolean;
+}
+
+// ─── Synthesis Engine Types ───────────────────────────────
+
+/** Priority levels for synthesized action items */
+export type ActionPriority = 'urgent' | 'high' | 'medium' | 'low';
+
+/** Category buckets for organizing actions */
+export type ActionCategory = 'operations' | 'culture' | 'staffing' | 'compliance' | 'communication';
+
+/** A synthesized action item generated from survey data */
+export interface SynthesizedAction {
+  id: string;
+  description: string;
+  priority: ActionPriority;
+  category: ActionCategory;
+  suggestedTimeline: string;
+  sourceThemeIds: string[];
+  sourceBeHeardIds: string[];
+  rationale: string;
+  completed: boolean;
+  completedAt: string | null;
+}
+
+/** Input bundle for the synthesis engine */
+export interface SynthesisInput {
+  themes: ThemeAggregate[];
+  beHeardSubmissions: BeHeardRequest[];
+  kpis: KPISnapshot[];
+  youSaidWeDid: YouSaidWeDid[];
+  role: UserRole;
+  existingActions: string[];
+}
+
+// ─── Agenda System Types ──────────────────────────────────
+
+/** The four meeting types available in the agenda system */
+export type MeetingType = 'all-staff' | 'team' | 'one-on-one' | 'org-wide';
+
+/** A section within a meeting agenda */
+export interface AgendaSection {
+  title: string;
+  durationMinutes: number;
+  items: string[];
+  type: 'discussion' | 'action-review' | 'accountability' | 'check-in' | 'strategic';
+}
+
+/** A fully rendered meeting agenda */
+export interface MeetingAgenda {
+  meetingType: MeetingType;
+  title: string;
+  generatedAt: string;
+  preparedBy: string;
+  sections: AgendaSection[];
+}
+
+/** Configuration for a meeting type including role access */
+export interface MeetingTypeConfig {
+  type: MeetingType;
+  label: string;
+  description: string;
+  allowedRoles: UserRole[];
+}
+
+// ─── Survey Distribution Types ──────────────────────────
+
+/** A survey that has been pushed and is available for distribution */
+export interface PushedSurvey {
+  id: string;
+  draft: CampaignDraft;
+  shareCode: string;             // 6-char alphanumeric code
+  shareUrl: string;              // constructed share URL
+  pushedAt: string;
+  pushedBy: string;
+  status: 'active' | 'completed' | 'paused';
 }

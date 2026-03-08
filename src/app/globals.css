@@ -40,6 +40,7 @@
   --border-subtle: rgba(75, 100, 148, 0.25);
   --border-medium: rgba(75, 100, 148, 0.4);
   --border-gold: rgba(201, 168, 76, 0.3);
+  --border-warm: rgba(201, 168, 76, 0.12);
   --shadow-glow: rgba(201, 168, 76, 0.08);
 }
 
@@ -78,6 +79,7 @@
   --color-border-subtle: var(--border-subtle);
   --color-border-medium: var(--border-medium);
   --color-border-gold: var(--border-gold);
+  --color-border-warm: var(--border-warm);
   --color-shadow-glow: var(--shadow-glow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -95,6 +97,11 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border-subtle);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-surface:hover {
+  border-color: var(--border-medium);
 }
 
 /* Gold accent card */
@@ -103,6 +110,21 @@ body {
   border: 1px solid var(--border-gold);
   border-radius: 10px;
   box-shadow: 0 2px 12px var(--gold-glow), 0 0 0 1px var(--border-gold);
+}
+
+/* Elevated card with gradient depth — premium feel */
+.card-elevated {
+  background: linear-gradient(135deg, rgba(25, 37, 64, 0.95), rgba(21, 32, 56, 0.85));
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border-subtle),
+              inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Interactive card hover with gold glow */
+.card-interactive:hover {
+  border-color: rgba(201, 168, 76, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(201, 168, 76, 0.15);
 }
 
 /* Shiny gold button */
@@ -156,6 +178,42 @@ body {
   background: linear-gradient(90deg, transparent 0%, var(--gold-shimmer) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 4s ease-in-out infinite;
+}
+
+/* Logo amplification glow — radiating voices */
+@keyframes logo-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.logo-glow {
+  position: relative;
+}
+
+.logo-glow::before {
+  content: '';
+  position: absolute;
+  inset: -40px -60px;
+  background: radial-gradient(ellipse at center, rgba(201, 168, 76, 0.18) 0%, rgba(201, 168, 76, 0.06) 40%, transparent 70%);
+  border-radius: 50%;
+  z-index: 0;
+  animation: logo-breathe 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.logo-glow::after {
+  content: '';
+  position: absolute;
+  inset: -24px -36px;
+  background: radial-gradient(ellipse at center, rgba(92, 184, 139, 0.08) 0%, transparent 60%);
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.logo-glow > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Ticker animation */
@@ -303,6 +361,11 @@ button, [role="button"], a, select, input[type="checkbox"], input[type="radio"] 
     animation: none !important;
   }
 
+  .logo-glow::before {
+    animation: none !important;
+    opacity: 0.85;
+  }
+
   /* Show ticker content statically when motion is reduced */
   .ticker-scroll, .ticker-scroll-slow {
     overflow-x: auto;
@@ -330,13 +393,43 @@ button, [role="button"], a, select, input[type="checkbox"], input[type="radio"] 
    MOBILE RESPONSIVE
    ============================== */
 
-/* Auto-collapse side panels on small screens */
-@media (max-width: 768px) {
-  /* Stack layout vertically on mobile */
-  .panel-collapse {
-    width: 100% !important;
-  }
+/* Mobile bottom nav safe area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
+/* Slide-up animation for mobile sheets */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Slide-left animation for side sheets */
+@keyframes slide-left {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-left {
+  animation: slide-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade-in for workspace content transitions */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Mobile-specific overrides */
+@media (max-width: 767px) {
   /* Ensure touch targets are large enough */
   button, a, [role="button"] {
     min-height: 44px;
@@ -346,10 +439,25 @@ button, [role="button"], a, select, input[type="checkbox"], input[type="radio"] 
   body {
     font-size: 16px;
   }
+
+  /* Main content needs bottom padding for the nav bar */
+  .mobile-main-pad {
+    padding-bottom: 5rem;
+  }
+
+  /* Cards should be full-width on mobile */
+  .card-surface, .card-gold {
+    border-radius: 8px;
+  }
+
+  /* Reduce heading sizes on mobile */
+  h2 {
+    font-size: 1.125rem;
+  }
 }
 
 /* Tablet adjustments */
-@media (max-width: 1024px) and (min-width: 769px) {
+@media (max-width: 1024px) and (min-width: 768px) {
   .panel-collapse {
     max-width: 200px;
   }

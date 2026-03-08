@@ -23,7 +23,7 @@ export default function ProgressChecklist({ items, compact = false }: ProgressCh
               />
             </div>
           </div>
-          <span className="text-[10px] font-medium text-gold-400 flex-shrink-0">
+          <span className="text-[11px] font-medium text-gold-400 flex-shrink-0">
             {completed}/{items.length}
           </span>
           <div className="flex items-center gap-1 flex-shrink-0">

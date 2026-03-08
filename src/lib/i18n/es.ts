@@ -1,5 +1,5 @@
 /**
- * Spanish translations — skeleton
+ * Spanish translations, skeleton
  *
  * This file demonstrates the pattern for adding new languages.
  * Keys that are missing here will fall back to English automatically.
@@ -57,15 +57,15 @@ const es: Partial<TranslationStrings> = {
   'response.questionOf': 'Pregunta {current} de {total}',
   'response.followUp': 'Seguimiento',
   'response.anythingElse': '¿Hay algo más que quieras agregar?',
-  'response.anythingElseHint': 'Este es tu espacio abierto. Comparte lo que tengas en mente — sin necesidad de un tema.',
+  'response.anythingElseHint': 'Este es tu espacio abierto. Comparte lo que tengas en mente, sin necesidad de un tema.',
   'response.skip': 'Omitir',
   'response.skipFollowUp': 'Omitir seguimiento',
-  'response.skipOpenFloor': 'Omitir — nada más que agregar',
+  'response.skipOpenFloor': 'Omitir, nada más que agregar',
   'response.submitContinue': 'Enviar y Continuar',
   'response.submitNext': 'Enviar y Siguiente Pregunta',
   'response.addThoughts': 'Agrega tus pensamientos',
   'response.complete.title': 'Gracias por compartir tu voz',
-  'response.complete.message': 'Tus respuestas han sido registradas. Se sintetizarán con otras para crear información anónima — nunca atribución individual.',
+  'response.complete.message': 'Tus respuestas han sido registradas. Se sintetizarán con otras para crear información anónima, nunca atribución individual.',
   'response.complete.youSaidWeDid': 'Busca las actualizaciones de "You Said / We Did" para ver cómo tus comentarios generan acción.',
   'response.complete.returnButton': 'Regresar al espacio de trabajo',
   'response.recording': 'Grabando…',
@@ -84,7 +84,7 @@ const es: Partial<TranslationStrings> = {
   'workspace.viewAll': 'Ver todo →',
 
   // ── Be Heard ──────────────────────────────────────────────
-  'beHeard.description': 'Comparte tu preocupación, idea o comentario abajo. Tu envío es anónimo — el liderazgo ve el contenido pero no tu identidad.',
+  'beHeard.description': 'Comparte tu preocupación, idea o comentario abajo. Tu envío es anónimo. El liderazgo ve el contenido pero no tu identidad.',
   'beHeard.placeholder': '¿Qué te gustaría que el liderazgo supiera?',
   'beHeard.submit': 'Enviar Be Heard',
   'beHeard.submitted.title': 'Tu voz ha sido recibida',
@@ -97,7 +97,7 @@ const es: Partial<TranslationStrings> = {
   'beHeard.status.actionPlanned': 'Acción Planificada',
   'beHeard.status.resolved': 'Resuelto',
   'beHeard.status.communicated': 'Comunicado',
-  'beHeard.status.alreadyResolved': 'Ya resuelto — siendo comunicado',
+  'beHeard.status.alreadyResolved': 'Ya resuelto, siendo comunicado',
 
   // ── Right Panel ───────────────────────────────────────────
   'rightPanel.agencyWide': 'Toda la Agencia',

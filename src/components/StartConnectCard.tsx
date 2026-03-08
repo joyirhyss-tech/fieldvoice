@@ -1,131 +1,195 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { useSettings } from '@/lib/useSettings';
 import { useStaffStore } from '@/lib/useStaffStore';
 import { LoggedInUser, StaffMember } from '@/lib/types';
 import { getRoleConfig } from '@/lib/roles';
-import StaffManager from '@/components/StaffManager';
-import ProfileCard from '@/components/ProfileCard';
 
 interface StartConnectCardProps {
   onConnect: (user: LoggedInUser) => void;
 }
 
-type Step = 'landing' | 'settings' | 'welcome' | 'login' | 'profile';
-type SettingsTab = 'documents' | 'roles' | 'connection';
-
-interface UploadSlot {
-  key: string;
-  label: string;
-  description: string;
-  file: string | null;
-}
+type Step = 'landing' | 'name-entry' | 'pin-setup' | 'pin-entry';
 
 export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
   const [step, setStep] = useState<Step>('landing');
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('documents');
-  const { settings, updateSettings } = useSettings();
-  const { staff } = useStaffStore();
+  const { staff, setPin, findByName } = useStaffStore();
 
-  // Connection fields
-  const [databaseType, setDatabaseType] = useState<'supabase' | 'custom' | ''>(settings.databaseType);
-  const [databaseUrl, setDatabaseUrl] = useState(settings.databaseUrl);
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState(settings.supabaseAnonKey);
-  const [llmProvider, setLlmProvider] = useState<'anthropic' | 'openai' | ''>(settings.llmProvider);
-  const [llmApiKey, setLlmApiKey] = useState(settings.llmApiKey);
+  // Name entry state
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [matchedMember, setMatchedMember] = useState<StaffMember | null>(null);
 
-  // Documents fields
-  const [agencyName, setAgencyName] = useState(settings.agencyName);
-  const [agencyContext, setAgencyContext] = useState(settings.agencyContext);
-  const [uploads, setUploads] = useState<UploadSlot[]>([
-    { key: 'policies', label: 'Policies & Procedures', description: 'Core organizational policies', file: null },
-    { key: 'compliance', label: 'Rules & Compliance', description: 'Regulatory and compliance documents', file: null },
-    { key: 'mandated', label: 'Mandated Reporting', description: 'Mandated reporting policies and protocols', file: null },
-    { key: 'survey', label: 'Survey Policy', description: 'Survey frequency, consent, and distribution rules', file: null },
-    { key: 'background', label: 'Background / Reference', description: 'Program guides, org charts, reference materials', file: null },
-  ]);
+  // PIN state
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [confirmDigits, setConfirmDigits] = useState(['', '', '', '']);
+  const [pinError, setPinError] = useState('');
 
-  // Login state
-  const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
-  const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [codeError, setCodeError] = useState(false);
+  // Refs for PIN auto-advance
+  const pinRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const confirmRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
-  useEffect(() => {
-    setDatabaseType(settings.databaseType);
-    setDatabaseUrl(settings.databaseUrl);
-    setSupabaseAnonKey(settings.supabaseAnonKey);
-    setLlmProvider(settings.llmProvider);
-    setLlmApiKey(settings.llmApiKey);
-    setAgencyName(settings.agencyName);
-    setAgencyContext(settings.agencyContext);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Handle name submission
+  const handleNameSubmit = () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setNameError('Please enter both first and last name.');
+      return;
+    }
+    const member = findByName(firstName, lastName);
+    if (!member) {
+      setNameError('Name not found. Check spelling or contact your administrator.');
+      return;
+    }
+    setMatchedMember(member);
+    setNameError('');
+    setPinDigits(['', '', '', '']);
+    setConfirmDigits(['', '', '', '']);
+    setPinError('');
 
-  const handleUpload = (key: string) => {
-    setUploads((prev) =>
-      prev.map((u) => (u.key === key ? { ...u, file: `${u.label}.pdf` } : u))
-    );
-  };
-
-  const saveSettings = () => {
-    updateSettings({
-      databaseType, databaseUrl, supabaseAnonKey,
-      llmProvider, llmApiKey, agencyName, agencyContext,
-    });
-    setStep('welcome');
-  };
-
-  const handleSelectMember = (member: StaffMember) => {
-    setSelectedMember(member);
-    setAccessCodeInput('');
-    setCodeError(false);
-  };
-
-  const handleCodeSubmit = () => {
-    if (!selectedMember) return;
-    // Bypass for now — accept any 3-digit code
-    if (accessCodeInput.length === 3) {
-      setStep('profile');
+    if (member.pin) {
+      setStep('pin-entry');
     } else {
-      setCodeError(true);
+      setStep('pin-setup');
     }
   };
 
-  const handleEnterApp = () => {
-    if (!selectedMember) return;
+  // Handle PIN digit input with auto-advance
+  const handlePinDigit = (index: number, value: string, digits: string[], setDigits: (d: string[]) => void, refs: React.RefObject<HTMLInputElement | null>[]) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newDigits = [...digits];
+    newDigits[index] = digit;
+    setDigits(newDigits);
+    setPinError('');
+
+    if (digit && index < 3) {
+      refs[index + 1].current?.focus();
+    }
+  };
+
+  // Handle backspace in PIN fields
+  const handlePinKeyDown = (index: number, e: React.KeyboardEvent, digits: string[], setDigits: (d: string[]) => void, refs: React.RefObject<HTMLInputElement | null>[]) => {
+    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+      refs[index - 1].current?.focus();
+      const newDigits = [...digits];
+      newDigits[index - 1] = '';
+      setDigits(newDigits);
+    }
+  };
+
+  // Auto-focus first PIN input when entering PIN screens
+  useEffect(() => {
+    if (step === 'pin-setup' || step === 'pin-entry') {
+      setTimeout(() => pinRefs[0].current?.focus(), 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // Handle PIN setup completion — save PIN, then redirect to pin-entry to confirm
+  const handlePinSetup = () => {
+    if (!matchedMember) return;
+    const pin = pinDigits.join('');
+    const confirm = confirmDigits.join('');
+
+    if (pin.length < 4) {
+      setPinError('Please enter all 4 digits.');
+      return;
+    }
+    if (pin !== confirm) {
+      setPinError('PINs do not match. Please try again.');
+      setConfirmDigits(['', '', '', '']);
+      confirmRefs[0].current?.focus();
+      return;
+    }
+
+    // Save PIN to staff record
+    setPin(matchedMember.id, pin);
+
+    // Update local matchedMember so pin-entry screen can verify
+    setMatchedMember({ ...matchedMember, pin });
+
+    // Reset PIN digits and go to pin-entry for first sign-in
+    setPinDigits(['', '', '', '']);
+    setPinError('');
+    setStep('pin-entry');
+  };
+
+  // Handle PIN entry (returning user)
+  const handlePinEntry = () => {
+    if (!matchedMember) return;
+    const pin = pinDigits.join('');
+
+    if (pin.length < 4) {
+      setPinError('Please enter all 4 digits.');
+      return;
+    }
+    if (pin !== matchedMember.pin) {
+      setPinError('Incorrect PIN. Please try again.');
+      setPinDigits(['', '', '', '']);
+      pinRefs[0].current?.focus();
+      return;
+    }
+
     onConnect({
-      staffId: selectedMember.id,
-      name: selectedMember.name,
-      role: selectedMember.role,
+      staffId: matchedMember.id,
+      name: matchedMember.name,
+      role: matchedMember.role,
+      sessionCreatedAt: new Date().toISOString(),
     });
   };
+
+  // Shared PIN input row renderer
+  const renderPinInputs = (digits: string[], setDigits: (d: string[]) => void, refs: React.RefObject<HTMLInputElement | null>[], label: string) => (
+    <div>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2 text-center">
+        {label}
+      </label>
+      <div className="flex gap-2 justify-center">
+        {digits.map((digit, i) => (
+          <input
+            key={i}
+            ref={refs[i]}
+            type="text"
+            inputMode="numeric"
+            maxLength={1}
+            value={digit}
+            onChange={(e) => handlePinDigit(i, e.target.value, digits, setDigits, refs)}
+            onKeyDown={(e) => handlePinKeyDown(i, e, digits, setDigits, refs)}
+            className="input-navy w-12 h-14 text-center text-xl font-mono font-bold tracking-wider"
+            aria-label={`${label} digit ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 
   // ── Step 1: Landing ───────────────────────────────────────
   if (step === 'landing') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deep">
         <div className="max-w-md w-full mx-4 text-center">
-          <div className="mb-10">
-            <Image
-              src="/fieldvoices-logo.png"
-              alt="FieldVoices"
-              width={465}
-              height={187}
-              className="mx-auto"
-              priority
-              unoptimized
-            />
+          <div className="mb-10 flex justify-center">
+            <div className="logo-glow inline-block">
+              <Image
+                src="/fieldvoices-logo.png"
+                alt="FieldVoices"
+                width={465}
+                height={187}
+                className="mx-auto"
+                priority
+                unoptimized
+              />
+            </div>
           </div>
           <p className="text-text-secondary text-sm leading-relaxed mb-10 max-w-xs mx-auto">
             Smart listening, synthesis, and implementation for mission-driven organizations
           </p>
           <button
-            onClick={() => setStep('settings')}
+            onClick={() => setStep('name-entry')}
             className="btn-gold w-full max-w-xs mx-auto py-3.5 px-8 rounded-lg text-sm block"
           >
-            Connect FieldVoices
+            Sign In
           </button>
           <p className="mt-6 text-center text-xs text-text-muted">
             Mission2Impact Library
@@ -135,332 +199,187 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     );
   }
 
-  // ── Step 3: Welcome — "Come on in!" ───────────────────────
-  if (step === 'welcome') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-deep">
-        <div className="card-gold max-w-md w-full mx-4 p-10 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-navy-800 border border-border-gold flex items-center justify-center glow-pulse">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
-              <path d="M5 12l5 5L20 7" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary mb-2">
-            Come on in!
-          </h1>
-          <p className="text-text-secondary text-sm leading-relaxed mb-8">
-            FieldVoices is ready. Your setup is saved and accessible anytime in Settings.
-          </p>
-          <button
-            onClick={() => {
-              if (staff.length > 0) {
-                setStep('login');
-              } else {
-                // No staff added yet — enter as a generic admin
-                onConnect({ staffId: 'admin', name: 'Admin', role: 'ed' });
-              }
-            }}
-            className="btn-gold w-full py-3.5 px-6 rounded-lg text-sm"
-          >
-            Enter FieldVoices
-          </button>
-          {staff.length === 0 && (
-            <p className="mt-4 text-[10px] text-text-muted">
-              No staff added yet — you&apos;ll enter as Admin. Add staff in Settings to enable personal logins.
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Step 4: Login — "Who's logging in?" ───────────────────
-  if (step === 'login') {
+  // ── Step 2: Name Entry ────────────────────────────────────
+  if (step === 'name-entry') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deep p-4">
-        <div className="card-surface max-w-lg w-full overflow-hidden">
+        <div className="card-surface max-w-md w-full overflow-hidden">
           <div className="px-6 py-5 border-b border-border-subtle text-center">
-            <h1 className="text-lg font-bold text-text-primary mb-1">Who&apos;s logging in?</h1>
-            <p className="text-xs text-text-muted">Select your name to access your personal workspace</p>
+            <h1 className="text-lg font-bold text-text-primary mb-1">Welcome to FieldVoices</h1>
+            <p className="text-xs text-text-muted">Enter your name to sign in</p>
           </div>
 
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
-            {selectedMember ? (
-              /* Access code entry */
-              <div className="text-center py-4">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-navy-800 border-2 border-border-gold flex items-center justify-center">
-                  <span className="text-lg font-bold text-gold-500">
-                    {selectedMember.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                  </span>
-                </div>
-                <h2 className="text-sm font-semibold text-text-primary mb-1">{selectedMember.name}</h2>
-                <p className="text-xs text-gold-400 mb-6">{getRoleConfig(selectedMember.role).label}</p>
+          <div className="p-6 space-y-4">
+            <div>
+              <label htmlFor="first-name" className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
+                First Name
+              </label>
+              <input
+                id="first-name"
+                type="text"
+                value={firstName}
+                onChange={(e) => { setFirstName(e.target.value); setNameError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') document.getElementById('last-name')?.focus(); }}
+                placeholder="Your first name"
+                className="input-navy w-full px-4 py-3 text-sm"
+                autoFocus
+                autoComplete="given-name"
+              />
+            </div>
+            <div>
+              <label htmlFor="last-name" className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
+                Last Name
+              </label>
+              <input
+                id="last-name"
+                type="text"
+                value={lastName}
+                onChange={(e) => { setLastName(e.target.value); setNameError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleNameSubmit(); }}
+                placeholder="Your last name"
+                className="input-navy w-full px-4 py-3 text-sm"
+                autoComplete="family-name"
+              />
+            </div>
 
-                <div className="max-w-[180px] mx-auto">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
-                    Enter 3-digit code
-                  </label>
-                  <input
-                    type="text"
-                    value={accessCodeInput}
-                    onChange={(e) => {
-                      setAccessCodeInput(e.target.value.replace(/\D/g, '').slice(0, 3));
-                      setCodeError(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCodeSubmit();
-                    }}
-                    maxLength={3}
-                    className="input-navy w-full px-4 py-3 text-center text-lg font-mono tracking-[0.5em] font-semibold"
-                    placeholder="•••"
-                    autoFocus
-                  />
-                  {codeError && (
-                    <p className="text-xs text-alert-rose mt-2">Enter a 3-digit code</p>
-                  )}
-                </div>
-
-                <div className="mt-6 flex gap-3 justify-center">
-                  <button
-                    onClick={() => {
-                      setSelectedMember(null);
-                      setAccessCodeInput('');
-                    }}
-                    className="px-4 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
-                  >
-                    &larr; Back
-                  </button>
-                  <button
-                    onClick={handleCodeSubmit}
-                    disabled={accessCodeInput.length < 3}
-                    className="btn-gold px-6 py-2 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    Continue
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Staff list */
-              <div className="space-y-2">
-                {staff.map((member) => {
-                  const role = getRoleConfig(member.role);
-                  return (
-                    <button
-                      key={member.id}
-                      onClick={() => handleSelectMember(member)}
-                      className="w-full flex items-center gap-3 rounded-lg bg-navy-800/40 hover:bg-navy-800 border border-border-subtle hover:border-gold-500/30 px-4 py-3 transition-all text-left"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-navy-700 border border-border-subtle flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-semibold text-text-primary">
-                          {member.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
-                        <p className="text-xs text-text-muted">{role.label}</p>
-                      </div>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted flex-shrink-0">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </button>
-                  );
-                })}
+            {nameError && (
+              <div className="rounded-lg bg-alert-rose/10 border border-alert-rose/20 p-3">
+                <p className="text-xs text-alert-rose">{nameError}</p>
               </div>
             )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setStep('landing'); setFirstName(''); setLastName(''); setNameError(''); }}
+                className="px-4 py-2.5 text-xs text-text-muted hover:text-text-primary transition-colors"
+              >
+                &larr; Back
+              </button>
+              <button
+                onClick={handleNameSubmit}
+                disabled={!firstName.trim() || !lastName.trim()}
+                className="btn-gold flex-1 py-2.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+
+          {staff.length === 0 && (
+            <div className="px-6 pb-4">
+              <p className="text-xs text-text-muted text-center">
+                No team members configured yet. Add staff in Settings first.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 3: PIN Setup (first-time user) ───────────────────
+  if (step === 'pin-setup' && matchedMember) {
+    const pinComplete = pinDigits.every((d) => d !== '');
+    const confirmComplete = confirmDigits.every((d) => d !== '');
+    const role = getRoleConfig(matchedMember.role);
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-deep p-4">
+        <div className="card-surface max-w-md w-full overflow-hidden">
+          <div className="px-6 py-5 border-b border-border-subtle text-center">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-navy-800 border-2 border-border-gold flex items-center justify-center">
+              <span className="text-base font-bold text-gold-500">
+                {matchedMember.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+            </div>
+            <h1 className="text-lg font-bold text-text-primary">
+              Welcome, {matchedMember.name.split(' ')[0]}!
+            </h1>
+            <p className="text-xs text-gold-400">{role.label}</p>
+            <p className="text-xs text-text-muted mt-1">Set up your PIN for quick sign-in</p>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {renderPinInputs(pinDigits, setPinDigits, pinRefs, 'Create your 4-digit PIN')}
+            {renderPinInputs(confirmDigits, setConfirmDigits, confirmRefs, 'Confirm PIN')}
+
+            {pinError && (
+              <p className="text-xs text-alert-rose text-center">{pinError}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setStep('name-entry'); setMatchedMember(null); }}
+                className="px-4 py-2.5 text-xs text-text-muted hover:text-text-primary transition-colors"
+              >
+                &larr; Back
+              </button>
+              <button
+                onClick={handlePinSetup}
+                disabled={!pinComplete || !confirmComplete}
+                className="btn-gold flex-1 py-2.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Set PIN
+              </button>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Step 5: Profile Card ──────────────────────────────────
-  if (step === 'profile' && selectedMember) {
-    return <ProfileCard member={selectedMember} onEnter={handleEnterApp} />;
-  }
+  // ── Step 4: PIN Entry (returning user) ────────────────────
+  if (step === 'pin-entry' && matchedMember) {
+    const pinComplete = pinDigits.every((d) => d !== '');
+    const role = getRoleConfig(matchedMember.role);
 
-  // ── Step 2: Full Settings ─────────────────────────────────
-  const tabs: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    {
-      key: 'documents',
-      label: 'Documents',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-      ),
-    },
-    {
-      key: 'roles',
-      label: 'Users & Roles',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
-    },
-    {
-      key: 'connection',
-      label: 'Connection',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-        </svg>
-      ),
-    },
-  ];
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-deep p-4">
-      <div className="card-surface max-w-2xl w-full overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-          <button
-            onClick={() => setStep('landing')}
-            className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-xs transition-colors"
-            aria-label="Back to landing"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-          <div className="text-center">
-            <h1 className="text-lg font-bold text-text-primary">Settings & Setup</h1>
-            <p className="text-xs text-text-muted">Configure your FieldVoices connection</p>
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-deep p-4">
+        <div className="card-surface max-w-md w-full overflow-hidden">
+          <div className="px-6 py-5 border-b border-border-subtle text-center">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-navy-800 border-2 border-border-gold flex items-center justify-center">
+              <span className="text-base font-bold text-gold-500">
+                {matchedMember.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+            </div>
+            <h1 className="text-lg font-bold text-text-primary">
+              Welcome back, {matchedMember.name.split(' ')[0]}
+            </h1>
+            <p className="text-xs text-gold-400">{role.label}</p>
           </div>
-          <button
-            onClick={() => {
-              updateSettings({
-                databaseType, databaseUrl, supabaseAnonKey,
-                llmProvider, llmApiKey, agencyName, agencyContext,
-              });
-              setStep('welcome');
-            }}
-            className="text-xs text-text-muted hover:text-gold-400 transition-colors underline underline-offset-2"
-          >
-            Skip for now &rarr;
-          </button>
-        </div>
 
-        {/* Tab navigation */}
-        <div className="flex border-b border-border-subtle">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setSettingsTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${
-                settingsTab === tab.key
-                  ? 'text-gold-400 border-b-2 border-gold-500 bg-navy-800/30'
-                  : 'text-text-muted hover:text-text-secondary hover:bg-navy-800/20'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          <div className="p-6 space-y-4">
+            {renderPinInputs(pinDigits, setPinDigits, pinRefs, 'Enter your PIN')}
 
-        {/* Tab content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {/* Documents Tab */}
-          {settingsTab === 'documents' && (
-            <div className="space-y-4">
-              <div className="card-surface p-4 mb-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Agency Name</label>
-                <input type="text" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} placeholder="Your organization name" className="input-navy w-full px-3 py-2 text-sm mb-3" />
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Agency Context</label>
-                <textarea value={agencyContext} onChange={(e) => setAgencyContext(e.target.value)} placeholder="Describe your organization's mission, population served, and key context..." rows={3} className="input-navy w-full px-3 py-2 text-sm resize-none" />
-              </div>
-              {uploads.map((slot) => (
-                <div key={slot.key} className="card-surface p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-text-primary">{slot.label}</h4>
-                      <p className="text-xs text-text-muted mt-0.5">{slot.description}</p>
-                    </div>
-                    <button onClick={() => handleUpload(slot.key)} className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${slot.file ? 'bg-accent-sage-light text-accent-sage border border-accent-sage/20' : 'btn-navy'}`}>
-                      {slot.file ? 'Uploaded' : 'Upload'}
-                    </button>
-                  </div>
-                  {slot.file && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-sage">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      {slot.file}
-                    </div>
-                  )}
-                </div>
-              ))}
+            {pinError && (
+              <p className="text-xs text-alert-rose text-center">{pinError}</p>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setStep('name-entry'); setMatchedMember(null); setPinDigits(['', '', '', '']); setPinError(''); }}
+                className="px-4 py-2.5 text-xs text-text-muted hover:text-text-primary transition-colors"
+              >
+                &larr; Back
+              </button>
+              <button
+                onClick={handlePinEntry}
+                disabled={!pinComplete}
+                className="btn-gold flex-1 py-2.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Sign In
+              </button>
             </div>
-          )}
 
-          {/* Users & Roles Tab — Staff CRUD */}
-          {settingsTab === 'roles' && <StaffManager />}
-
-          {/* Connection Tab */}
-          {settingsTab === 'connection' && (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Database</label>
-                <div className="flex gap-2 mb-3">
-                  {(['supabase', 'custom'] as const).map((type) => (
-                    <button key={type} onClick={() => setDatabaseType(type)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${databaseType === type ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]' : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'}`}>
-                      {type === 'supabase' ? 'Supabase' : 'Custom DB'}
-                    </button>
-                  ))}
-                </div>
-                {databaseType && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">{databaseType === 'supabase' ? 'Project URL' : 'Connection String'}</label>
-                      <input type="text" value={databaseUrl} onChange={(e) => setDatabaseUrl(e.target.value)} placeholder={databaseType === 'supabase' ? 'https://your-project.supabase.co' : 'postgresql://...'} className="input-navy w-full px-3 py-2 text-sm" />
-                    </div>
-                    {databaseType === 'supabase' && (
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">Anon Key</label>
-                        <input type="password" value={supabaseAnonKey} onChange={(e) => setSupabaseAnonKey(e.target.value)} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." className="input-navy w-full px-3 py-2 text-sm" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">LLM Synthesis Engine</label>
-                <div className="flex gap-2 mb-3">
-                  {(['anthropic', 'openai'] as const).map((provider) => (
-                    <button key={provider} onClick={() => setLlmProvider(provider)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm border transition-all ${llmProvider === provider ? 'border-gold-500 bg-navy-800 text-gold-400 shadow-[0_0_12px_var(--gold-glow)]' : 'border-border-subtle bg-navy-900 text-text-muted hover:border-navy-400'}`}>
-                      {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
-                    </button>
-                  ))}
-                </div>
-                {llmProvider && (
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">API Key</label>
-                    <input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder={`${llmProvider === 'anthropic' ? 'sk-ant-' : 'sk-'}...`} className="input-navy w-full px-3 py-2 text-sm" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border-subtle bg-navy-900/50">
-          <button onClick={saveSettings} className="btn-gold w-full py-3 px-6 rounded-lg text-sm">
-            Save & Continue
-          </button>
-          <p className="mt-3 text-center text-xs text-text-muted">
-            You can update these settings anytime from the header
-          </p>
+            <p className="text-xs text-text-muted text-center">
+              Forgot your PIN? Contact your administrator to reset it.
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Fallback — should not reach here
+  return null;
 }

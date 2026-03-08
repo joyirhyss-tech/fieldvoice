@@ -42,10 +42,10 @@ export default function ProfileCard({ member, onEnter }: ProfileCardProps) {
         {/* Documents */}
         {member.documents.length > 0 && (
           <div className="mb-6 text-left">
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
               Documents on File
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               {member.documents.map((doc, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-sage flex-shrink-0">

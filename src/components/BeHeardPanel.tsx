@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { BeHeardRequest, BeHeardStatusUpdate } from '@/lib/types';
 import { useVoiceRecording } from '@/lib/useVoiceRecording';
+import { scoreSubmission } from '@/lib/scoring';
 
 const ROUTE_INFO = [
   { range: '0–39', label: 'Director of Programs', color: 'text-text-secondary' },
@@ -11,22 +12,29 @@ const ROUTE_INFO = [
   { range: '90+', label: 'Voice Steward + ED', color: 'text-alert-rose' },
 ];
 
-export default function BeHeardPanel() {
+interface BeHeardPanelProps {
+  demoMode?: boolean;
+  demoSubmissions?: BeHeardRequest[];
+  demoStatuses?: BeHeardStatusUpdate[];
+}
+
+export default function BeHeardPanel({ demoMode, demoSubmissions, demoStatuses }: BeHeardPanelProps) {
   const [content, setContent] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [showTracker, setShowTracker] = useState(false);
-  const [submissions, setSubmissions] = useState<BeHeardRequest[]>([]);
-  const statuses: BeHeardStatusUpdate[] = [];
+  const [showTracker, setShowTracker] = useState(demoMode || false);
+  const [submissions, setSubmissions] = useState<BeHeardRequest[]>(demoMode ? (demoSubmissions || []) : []);
+  const statuses: BeHeardStatusUpdate[] = demoMode ? (demoStatuses || []) : [];
   const voice = useVoiceRecording();
 
   const handleSubmit = () => {
     if (!content.trim()) return;
+    const { score, routedTo } = scoreSubmission(content.trim());
     const newSubmission: BeHeardRequest = {
       id: `bh-${Date.now()}`,
       submittedBy: 'anonymous',
       content: content.trim(),
-      score: Math.floor(Math.random() * 100),
-      routedTo: 'dop',
+      score,
+      routedTo,
       status: 'pending',
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -54,9 +62,9 @@ export default function BeHeardPanel() {
 
         {/* Routing transparency */}
         <div className="max-w-sm mx-auto mb-6">
-          <div className="card-surface p-3 text-left">
+          <div className="card-surface p-4 text-left">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-2">How routing works</h3>
-            <div className="space-y-1">
+            <div className="space-y-2">
               {ROUTE_INFO.map((route) => (
                 <div key={route.range} className="flex items-center justify-between text-xs">
                   <span className="text-text-muted">Score {route.range}</span>
@@ -98,7 +106,7 @@ export default function BeHeardPanel() {
           </button>
         </div>
         <p className="text-xs text-text-muted">
-          Track what happened with your voice. All submissions are anonymous — only you can see your own history here.
+          Track what happened with your voice. All submissions are anonymous. Only you can see your own history here.
         </p>
 
         {submissions.length === 0 ? (
@@ -127,20 +135,37 @@ export default function BeHeardPanel() {
                 'escalated': 'Escalated',
               };
 
+              // Escalation timer — show aging indicator for unresolved submissions
+              const daysPending = Math.floor(
+                (Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+              );
+              const isResolved = request.status === 'actioned' || request.status === 'escalated';
+              const escalationLevel = isResolved ? 'resolved' : daysPending >= 7 ? 'critical' : daysPending >= 3 ? 'warning' : 'normal';
+
               return (
-                <div key={request.id} className="card-surface p-3" role="article">
+                <div key={request.id} className="card-surface p-4" role="article">
                   <div className="flex items-start gap-3">
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${statusColors[request.status] || 'bg-navy-600'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-text-primary leading-relaxed">{request.content}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <span className="text-[11px] text-text-muted">{request.createdAt}</span>
                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-navy-700 text-text-secondary font-medium">
                           {statusLabels[request.status] || request.status}
                         </span>
+                        {escalationLevel === 'warning' && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-gold-500/20 text-gold-400 font-medium">
+                            {daysPending}d pending
+                          </span>
+                        )}
+                        {escalationLevel === 'critical' && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-alert-rose/20 text-alert-rose font-medium animate-pulse">
+                            {daysPending}d, needs attention
+                          </span>
+                        )}
                       </div>
                       {statusUpdate && (
-                        <div className="mt-2 rounded bg-navy-700/50 p-2 border-l-2 border-accent-sage/40">
+                        <div className="mt-2 rounded bg-navy-700/50 p-3 border-l-2 border-accent-sage/40">
                           <p className="text-[11px] text-text-secondary leading-relaxed">{statusUpdate.note}</p>
                         </div>
                       )}
@@ -198,17 +223,17 @@ export default function BeHeardPanel() {
         {voice.isRecording && (
           <div className="flex items-center gap-2 mt-1.5 px-2 py-1 rounded bg-alert-rose/10 border border-alert-rose/20">
             <div className="w-2 h-2 rounded-full bg-alert-rose glow-pulse" />
-            <span className="text-[10px] text-alert-rose font-medium">Recording {voice.formatDuration(voice.duration)}</span>
+            <span className="text-xs text-alert-rose font-medium">Recording {voice.formatDuration(voice.duration)}</span>
           </div>
         )}
         {voice.audioUrl && !voice.isRecording && (
           <div className="flex items-center gap-2 mt-1.5">
             <audio src={voice.audioUrl} controls className="h-8 flex-1" />
-            <button onClick={voice.clearRecording} className="text-[10px] text-text-muted hover:text-alert-rose transition-colors">Clear</button>
+            <button onClick={voice.clearRecording} className="text-xs text-text-muted hover:text-alert-rose transition-colors">Clear</button>
           </div>
         )}
-        {voice.error && <p className="text-[10px] text-alert-rose mt-1">{voice.error}</p>}
-        <p id="be-heard-help" className="text-[11px] text-text-muted mt-1.5">
+        {voice.error && <p className="text-xs text-alert-rose mt-1">{voice.error}</p>}
+        <p id="be-heard-help" className="text-[11px] text-text-muted mt-1.5 max-w-[52ch]">
           Your submission is anonymous and scored automatically. Higher urgency items are routed to senior leadership. You can track the status of your submissions after submitting.
         </p>
       </div>

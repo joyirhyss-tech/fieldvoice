@@ -8,13 +8,29 @@ interface DailyBriefNotebookProps {
   brief: DailyBrief;
   canEdit?: boolean;
   userName?: string;
+  currentUserId?: string;
+  briefOwnerId?: string;
+  onBack?: () => void;
 }
 
-export default function DailyBriefNotebook({ brief, canEdit = false, userName = '' }: DailyBriefNotebookProps) {
+export default function DailyBriefNotebook({ brief, canEdit = false, userName = '', currentUserId, briefOwnerId, onBack }: DailyBriefNotebookProps) {
   const [leadershipMemo, setLeadershipMemo] = useLocalStorage<string>('fieldvoices-leadership-memo', '');
+
+  // Edit permission: canEdit (role-based) AND either owner matches current user or brief is new (no owner)
+  const isOwnerOrNew = briefOwnerId === undefined || briefOwnerId === currentUserId;
+  const effectiveCanEdit = canEdit && isOwnerOrNew;
 
   return (
     <div className="space-y-4">
+      {onBack && (
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          Back to Daily Brief
+        </button>
+      )}
+
       {brief.regulationAlert && (
         <div className="px-3 py-2 rounded-lg bg-alert-rose-light border border-alert-rose/20 text-xs text-alert-rose">
           Regulation-first: stress/frazzle signals elevated. Prioritize staff wellbeing action.
@@ -34,7 +50,7 @@ export default function DailyBriefNotebook({ brief, canEdit = false, userName = 
         </div>
 
         {/* Memo */}
-        {canEdit ? (
+        {effectiveCanEdit ? (
           <textarea
             value={leadershipMemo}
             onChange={(e) => setLeadershipMemo(e.target.value)}
@@ -53,7 +69,7 @@ export default function DailyBriefNotebook({ brief, canEdit = false, userName = 
         )}
 
         {/* Voice / Video placeholders — tier-1 only */}
-        {canEdit && (
+        {effectiveCanEdit && (
           <div className="flex gap-2">
             <button
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle bg-navy-800/40 text-xs text-text-muted hover:text-text-primary hover:border-border-medium transition-colors"
@@ -84,7 +100,7 @@ export default function DailyBriefNotebook({ brief, canEdit = false, userName = 
           <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
             Themes surfaced
           </h4>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2.5">
             {brief.themes.map((theme, i) => (
               <li key={i} className="text-sm text-text-secondary flex items-start gap-2">
                 <span className="text-gold-500 mt-0.5">&bull;</span>

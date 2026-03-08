@@ -1,21 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // Custom event name for cross-instance sync on the same page
 const SYNC_EVENT = 'fieldvoices-storage-sync';
 
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
-  // Initialize from localStorage (only on client)
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') return initialValue;
+  // Always initialize with initialValue to match server render (avoids hydration mismatch)
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const hydrated = useRef(false);
+
+  // After hydration, read the real value from localStorage
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
     try {
       const item = window.localStorage.getItem(key);
-      return item ? (JSON.parse(item) as T) : initialValue;
+      if (item !== null) {
+        const parsed = JSON.parse(item) as T;
+        setStoredValue(parsed);
+      }
     } catch {
-      return initialValue;
+      // localStorage unavailable or parse error — keep initialValue
     }
-  });
+  }, [key, initialValue]);
 
   // Wrapped setter that also dispatches a sync event
   const setValue = useCallback((value: T | ((prev: T) => T)) => {

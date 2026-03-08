@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CampaignDraft, SurveyQuestion, QuestionType } from '@/lib/types';
 import { useSettings } from '@/lib/useSettings';
+import { isDemoMode } from '@/lib/demo-data';
+import { useDocumentStore } from '@/lib/useDocumentStore';
 
 interface ReviewPanelProps {
   draft: CampaignDraft;
@@ -30,8 +32,87 @@ const QUESTION_TYPE_META: Record<QuestionType, { label: string; color: string; i
   'contextual': { label: 'Contextual', color: 'text-emerald-400 border-emerald-400/20 bg-emerald-400/5', icon: '🎯' },
 };
 
+function getDemoQuestions(): SurveyQuestion[] {
+  const ts = Date.now();
+  return [
+    {
+      id: `sq-demo-${ts}-0`,
+      text: 'How supported do you feel in your role right now?',
+      type: 'scale',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Scaled 1 to 5. Anchors: 1 = Not at all, 5 = Deeply supported.',
+    },
+    {
+      id: `sq-demo-${ts}-1`,
+      text: 'Think about a moment this week when your work felt meaningful. What happened?',
+      type: 'reflective',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Narrative prompt: give space for storytelling. No word limit.',
+    },
+    {
+      id: `sq-demo-${ts}-2`,
+      text: 'Do you have what you need to do your job well today?',
+      type: 'yes-no',
+      source: 'ai-generated',
+      included: true,
+    },
+    {
+      id: `sq-demo-${ts}-3`,
+      text: 'In one word, how are you feeling about the work right now?',
+      type: 'pulse',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Quick emotional check-in. Keep it light and low-barrier.',
+    },
+    {
+      id: `sq-demo-${ts}-4`,
+      text: 'What is one thing leadership could do to make your day-to-day easier?',
+      type: 'open',
+      source: 'ai-generated',
+      included: true,
+    },
+    {
+      id: `sq-demo-${ts}-5`,
+      text: 'How well does communication flow between your team and leadership?',
+      type: 'scale',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Scaled 1 to 5. Anchors: 1 = Rarely reaches us, 5 = Clear and consistent.',
+    },
+    {
+      id: `sq-demo-${ts}-6`,
+      text: 'Which of these would most improve your experience at work?',
+      type: 'multiple-choice',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Options: More training, Better tools, Clearer expectations, Peer support, Schedule flexibility.',
+    },
+    {
+      id: `sq-demo-${ts}-7`,
+      text: 'Is there something you wish someone would ask you about your work?',
+      type: 'reflective',
+      source: 'ai-generated',
+      included: true,
+      designNote: 'Opens a door for what usually goes unsaid. Powerful closer.',
+    },
+    {
+      id: `sq-demo-${ts}-8`,
+      text: 'After your next team meeting, what is one thing you want to carry forward from the conversation?',
+      type: 'contextual',
+      source: 'ai-generated',
+      included: true,
+      contextTrigger: 'post-meeting',
+    },
+  ];
+}
+
 export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewPanelProps) {
   const { settings, hasApiKey } = useSettings();
+  const { buildDocumentContext } = useDocumentStore();
+  const isDemo = isDemoMode();
+  const canGenerate = isDemo || hasApiKey;
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState('');
   const [customType, setCustomType] = useState<QuestionType>('open');
@@ -41,28 +122,48 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
 
+  // Auto-populate Statement of Need from intention + objective
+  useEffect(() => {
+    if (!draft.statementOfNeed && draft.intention && draft.objective) {
+      onUpdate({ statementOfNeed: `${draft.intention.trim()} ${draft.objective.trim()}` });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const includedCount = draft.questions.filter((q) => q.included).length;
   const contextualQuestions = draft.questions.filter((q) => q.type === 'contextual');
 
   const generateQuestions = async () => {
-    if (!hasApiKey) return;
+    if (!canGenerate) return;
     setGenerating(true);
     setGenerateError('');
     try {
-      const res = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          intention: draft.intention,
-          objective: draft.objective,
-          agencyContext: settings.agencyContext || undefined,
-          llmProvider: settings.llmProvider,
-          llmApiKey: settings.llmApiKey,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate questions');
-      onUpdate({ questions: [...draft.questions, ...data.questions] });
+      if (isDemo) {
+        // Simulate brief generation delay for demo
+        await new Promise((r) => setTimeout(r, 1500));
+        onUpdate({ questions: [...draft.questions, ...getDemoQuestions()] });
+      } else {
+        // Build combined context from agency settings + uploaded documents
+        const docContext = buildDocumentContext();
+        const combinedContext = [
+          settings.agencyContext || '',
+          docContext ? `\n\nUploaded Agency Documents:\n${docContext}` : '',
+        ].filter(Boolean).join('');
+
+        const res = await fetch('/api/generate-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intention: draft.intention,
+            objective: draft.objective,
+            agencyContext: combinedContext || undefined,
+            llmProvider: settings.llmProvider,
+            llmApiKey: settings.llmApiKey,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to generate questions');
+        onUpdate({ questions: [...draft.questions, ...data.questions] });
+      }
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
@@ -134,7 +235,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
             <div className="flex-1">
               <h4 className="text-xs font-semibold text-amber-300 mb-1">Practice Center · AIdedEQ</h4>
               <p className="text-xs text-text-secondary leading-relaxed">
-                Questions are guided by the heart and soul of the Practice Center — designed to be
+                Questions are guided by the heart and soul of the Practice Center, designed to be
                 humane, emotionally intelligent, and rooted in lived experience.
               </p>
             </div>
@@ -155,7 +256,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
           />
         </div>
 
-        {/* Empty state — generate or add manually */}
+        {/* Empty state: generate or add manually */}
         <div className="py-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-navy-800 border border-border-gold flex items-center justify-center">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
@@ -174,7 +275,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
             {/* AI Generate button */}
             <button
               onClick={generateQuestions}
-              disabled={generating || !hasApiKey}
+              disabled={generating || !canGenerate}
               className="btn-gold py-3 px-6 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
             >
               {generating ? (
@@ -190,13 +291,13 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
-                  Generate with AI
+                  AIdedEQ Smart Generation
                 </>
               )}
             </button>
 
-            {!hasApiKey && (
-              <p className="text-[10px] text-text-muted">
+            {!canGenerate && (
+              <p className="text-xs text-text-muted">
                 Set up your API key in Settings (Connection tab) to enable AI generation.
               </p>
             )}
@@ -249,26 +350,26 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
             </p>
             <button
               onClick={() => setShowDesignGuide(!showDesignGuide)}
-              className="mt-2 text-[10px] font-medium text-amber-300 hover:text-amber-200 transition-colors"
+              className="mt-2 text-xs font-medium text-amber-300 hover:text-amber-200 transition-colors"
             >
               {showDesignGuide ? '▾ Hide design principles' : '▸ View design principles'}
             </button>
             {showDesignGuide && (
-              <div className="mt-2 pt-2 border-t border-amber-300/10 space-y-1.5">
-                <p className="text-[10px] text-text-muted leading-relaxed">
-                  <strong className="text-text-secondary">Warmth over sterility</strong> — Questions should feel like a thoughtful check-in from someone who cares, not a compliance form.
+              <div className="mt-2 pt-2 border-t border-amber-300/10 space-y-2.5">
+                <p className="text-xs text-text-muted leading-relaxed max-w-[52ch]">
+                  <strong className="text-text-secondary">Warmth over sterility:</strong> Questions should feel like a thoughtful check-in from someone who cares, not a compliance form.
                 </p>
-                <p className="text-[10px] text-text-muted leading-relaxed">
-                  <strong className="text-text-secondary">Invite storytelling</strong> — Reflective and open prompts let people share what matters in their own words.
+                <p className="text-xs text-text-muted leading-relaxed max-w-[52ch]">
+                  <strong className="text-text-secondary">Invite storytelling:</strong> Reflective and open prompts let people share what matters in their own words.
                 </p>
-                <p className="text-[10px] text-text-muted leading-relaxed">
-                  <strong className="text-text-secondary">Right moment, right question</strong> — Contextual prompts arrive when the experience is fresh, not weeks later.
+                <p className="text-xs text-text-muted leading-relaxed max-w-[52ch]">
+                  <strong className="text-text-secondary">Right moment, right question:</strong> Contextual prompts arrive when the experience is fresh, not weeks later.
                 </p>
-                <p className="text-[10px] text-text-muted leading-relaxed">
-                  <strong className="text-text-secondary">Honor the person behind the data</strong> — Pulse checks acknowledge that people have feelings, not just opinions.
+                <p className="text-xs text-text-muted leading-relaxed max-w-[52ch]">
+                  <strong className="text-text-secondary">Honor the person behind the data:</strong> Pulse checks acknowledge that people have feelings, not just opinions.
                 </p>
-                <p className="text-[10px] text-text-muted leading-relaxed">
-                  <strong className="text-text-secondary">Mix is intentional</strong> — Combine scaled data with reflective depth. Neither alone tells the whole story.
+                <p className="text-xs text-text-muted leading-relaxed max-w-[52ch]">
+                  <strong className="text-text-secondary">Mix is intentional:</strong> Combine scaled data with reflective depth. Neither alone tells the whole story.
                 </p>
               </div>
             )}
@@ -310,7 +411,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
             const count = draft.questions.filter((q) => q.type === key).length;
             if (count === 0) return null;
             return (
-              <span key={key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border ${meta.color}`}>
+              <span key={key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border ${meta.color}`}>
                 <span>{meta.icon}</span>
                 <span>{meta.label}</span>
                 <span className="opacity-60">({count})</span>
@@ -381,7 +482,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
 
                       {/* Design note */}
                       {q.designNote && (
-                        <p className="text-[10px] text-amber-300/70 italic mt-1 leading-relaxed">
+                        <p className="text-xs text-amber-300/70 italic mt-1 leading-relaxed max-w-[52ch]">
                           {q.designNote}
                         </p>
                       )}
@@ -393,17 +494,17 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                             <circle cx="12" cy="12" r="10" />
                             <polyline points="12 6 12 12 16 14" />
                           </svg>
-                          <span className="text-[10px] text-emerald-400">
+                          <span className="text-xs text-emerald-400">
                             Trigger: {DEFAULT_CONTEXT_TRIGGERS.find((t) => t.event === q.contextTrigger)?.label || q.contextTrigger}
                           </span>
                         </div>
                       )}
 
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${sourceBadge.className}`}>
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ${sourceBadge.className}`}>
                           {sourceBadge.label}
                         </span>
-                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] border ${typeMeta.color}`}>
+                        <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] border ${typeMeta.color}`}>
                           <span>{typeMeta.icon}</span> {typeMeta.label}
                         </span>
                       </div>
@@ -438,11 +539,11 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
           })}
         </div>
 
-        {/* Action buttons — Generate more + Add custom */}
+        {/* Action buttons: Generate more + Add custom */}
         <div className="mt-3 flex gap-2">
           <button
             onClick={generateQuestions}
-            disabled={generating || !hasApiKey}
+            disabled={generating || !canGenerate}
             className="flex-1 px-3 py-2 rounded-lg border border-dashed border-gold-500/40 text-xs text-gold-400 hover:bg-navy-800 hover:border-gold-500/60 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           >
             {generating ? (
@@ -458,7 +559,7 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
-                Generate more with AI
+                AIdedEQ Smart Generation
               </>
             )}
           </button>
@@ -488,11 +589,11 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
               autoFocus
             />
             <div className="flex items-center gap-2">
-              <label className="text-[10px] text-text-muted">Type:</label>
+              <label className="text-xs text-text-muted">Type:</label>
               <select
                 value={customType}
                 onChange={(e) => setCustomType(e.target.value as QuestionType)}
-                className="px-2 py-1 rounded text-[10px] bg-navy-700 border border-border-subtle text-text-primary"
+                className="px-2 py-1 rounded text-xs bg-navy-700 border border-border-subtle text-text-primary"
               >
                 <option value="open">Open Response</option>
                 <option value="scale">Scaled</option>
@@ -532,32 +633,32 @@ export default function ReviewPanel({ draft, onUpdate, onNext, onBack }: ReviewP
           <h4 className="text-xs font-semibold text-emerald-400">Context-Aware Nudges</h4>
         </div>
         <p className="text-xs text-text-muted leading-relaxed mb-2.5">
-          These questions are delivered at the right moment — after a meeting, a milestone, or an event — so the reflection feels natural, not like an assignment.
+          These questions are delivered at the right moment; after a meeting, a milestone, or an event, so the reflection feels natural, not like an assignment.
         </p>
-        <div className="space-y-1.5">
+        <div className="space-y-2.5">
           {contextualQuestions.length > 0 ? (
             contextualQuestions.map((q) => (
               <div key={q.id} className="flex items-center gap-2 text-xs">
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${q.included ? 'bg-emerald-400' : 'bg-navy-600'}`} />
                 <span className="text-text-primary truncate flex-1">{q.text}</span>
-                <span className="text-[10px] text-emerald-400/60 flex-shrink-0">
-                  {DEFAULT_CONTEXT_TRIGGERS.find((t) => t.event === q.contextTrigger)?.label || '—'}
+                <span className="text-xs text-emerald-400/60 flex-shrink-0">
+                  {DEFAULT_CONTEXT_TRIGGERS.find((t) => t.event === q.contextTrigger)?.label || '-'}
                 </span>
               </div>
             ))
           ) : (
-            <p className="text-[10px] text-text-muted italic">No contextual questions added yet. Add one above with type &ldquo;Contextual.&rdquo;</p>
+            <p className="text-xs text-text-muted italic">No contextual questions added yet. Add one above with type &ldquo;Contextual.&rdquo;</p>
           )}
         </div>
         {/* Available triggers */}
         <details className="mt-2.5">
-          <summary className="text-[10px] text-emerald-400/70 cursor-pointer hover:text-emerald-400 transition-colors">
+          <summary className="text-xs text-emerald-400/70 cursor-pointer hover:text-emerald-400 transition-colors">
             Available event triggers ({DEFAULT_CONTEXT_TRIGGERS.length})
           </summary>
-          <div className="mt-1.5 space-y-1">
+          <div className="mt-1.5 space-y-2">
             {DEFAULT_CONTEXT_TRIGGERS.map((trigger) => (
-              <div key={trigger.id} className="text-[10px] text-text-muted pl-2 border-l border-emerald-400/20">
-                <span className="text-text-secondary">{trigger.label}</span> — {trigger.description}
+              <div key={trigger.id} className="text-xs text-text-muted pl-2 border-l border-emerald-400/20">
+                <span className="text-text-secondary">{trigger.label}:</span> {trigger.description}
               </div>
             ))}
           </div>

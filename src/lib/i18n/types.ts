@@ -7,13 +7,13 @@
  * 3. Import and register it in index.ts
  */
 
-/** Supported locale codes — add new languages here */
+/** Supported locale codes: add new languages here */
 export type SupportedLocale = 'en' | 'es' | 'fr' | 'ht' | 'zh' | 'ar';
 
-/** All translation keys — derived from the English file */
+/** All translation keys, derived from the English file */
 export type TranslationKey = string;
 
-/** Translation dictionary — partial because non-English may have gaps (falls back to English) */
+/** Translation dictionary, partial because non-English may have gaps (falls back to English) */
 export type TranslationStrings = Record<string, string>;
 
 /** Language metadata for the selector UI */
