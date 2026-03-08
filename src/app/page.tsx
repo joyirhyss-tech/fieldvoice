@@ -286,10 +286,17 @@ export default function Home() {
     );
   }
 
-  // Sign-in gate only applies in demo mode — real tool bypasses to workspace
+  // Sign-in gate — demo mode auto-logs in as Lauralani Reece
   if (!loggedInUser) {
     if (demoMode) {
-      return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} />;
+      const demoUser: LoggedInUser = {
+        staffId: 'FV017',
+        name: 'Lauralani Reece',
+        role: 'ed',
+        sessionCreatedAt: new Date().toISOString(),
+      };
+      setLoggedInUser(demoUser);
+      return null;
     }
     // Real tool: auto-connect as admin
     const defaultUser: LoggedInUser = {
