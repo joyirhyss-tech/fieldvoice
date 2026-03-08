@@ -291,13 +291,20 @@ export default function Home() {
     if (demoMode) {
       return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
     }
-    // Live mode: show landing page, user clicks Sign In to proceed
-    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} onEnableDemo={() => {
-      seedDemoData();
-      setDemoMode(true);
-      // Bypass login — go straight into demo workspace as Lauralani
-      setLoggedInUser({ staffId: 'FV017', name: 'Lauralani Reece', role: 'ed', sessionCreatedAt: new Date().toISOString() });
-    }} />;
+    // Live mode: show landing page — both buttons bypass login
+    return <StartConnectCard
+      onConnect={(user) => setLoggedInUser(user)}
+      onQuickSignIn={() => {
+        // Bypass login — go straight into empty admin workspace
+        setLoggedInUser({ staffId: 'admin', name: 'Admin User', role: 'ed', sessionCreatedAt: new Date().toISOString() });
+      }}
+      onEnableDemo={() => {
+        seedDemoData();
+        setDemoMode(true);
+        // Bypass login — go straight into demo workspace as Lauralani
+        setLoggedInUser({ staffId: 'FV017', name: 'Lauralani Reece', role: 'ed', sessionCreatedAt: new Date().toISOString() });
+      }}
+    />;
   }
 
   // Determine workspace title and content — i18n-aware

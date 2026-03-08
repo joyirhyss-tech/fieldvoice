@@ -11,11 +11,12 @@ interface StartConnectCardProps {
   demoMode?: boolean;
   liveAdmin?: boolean;
   onEnableDemo?: () => void;
+  onQuickSignIn?: () => void;
 }
 
 type Step = 'landing' | 'name-entry' | 'pin-setup' | 'pin-entry';
 
-export default function StartConnectCard({ onConnect, demoMode, liveAdmin, onEnableDemo }: StartConnectCardProps) {
+export default function StartConnectCard({ onConnect, demoMode, liveAdmin, onEnableDemo, onQuickSignIn }: StartConnectCardProps) {
   const prefill = demoMode || liveAdmin;
   const [step, setStep] = useState<Step>(prefill ? 'name-entry' : 'landing');
   const { staff, setPin, findByName } = useStaffStore();
@@ -201,7 +202,7 @@ export default function StartConnectCard({ onConnect, demoMode, liveAdmin, onEna
             Turns feedback into themes, themes into shared action, and shared action into trust.
           </p>
           <button
-            onClick={() => setStep('name-entry')}
+            onClick={onQuickSignIn || (() => setStep('name-entry'))}
             className="btn-gold w-full max-w-xs mx-auto py-3.5 px-8 rounded-lg text-sm block"
           >
             Sign In
