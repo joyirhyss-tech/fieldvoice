@@ -286,22 +286,16 @@ export default function Home() {
     );
   }
 
-  // Sign-in gate — demo mode pre-fills fields so you just click through
+  // Sign-in gate — always show branded landing page with both bypass buttons
   if (!loggedInUser) {
-    if (demoMode) {
-      return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
-    }
-    // Live mode: show landing page — both buttons bypass login
     return <StartConnectCard
       onConnect={(user) => setLoggedInUser(user)}
       onQuickSignIn={() => {
-        // Bypass login — go straight into empty admin workspace
+        if (demoMode) { clearDemoData(); setDemoMode(false); }
         setLoggedInUser({ staffId: 'admin', name: 'Admin User', role: 'ed', sessionCreatedAt: new Date().toISOString() });
       }}
       onEnableDemo={() => {
-        seedDemoData();
-        setDemoMode(true);
-        // Bypass login — go straight into demo workspace as Lauralani
+        if (!demoMode) { seedDemoData(); setDemoMode(true); }
         setLoggedInUser({ staffId: 'FV017', name: 'Lauralani Reece', role: 'ed', sessionCreatedAt: new Date().toISOString() });
       }}
     />;
