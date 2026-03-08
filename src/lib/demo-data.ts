@@ -137,13 +137,17 @@ export const DEMO_THEMES: ThemeAggregate[] = [
 // ─── KPI Metrics ─────────────────────────────────────────────
 
 export const DEMO_KPIS: KPISnapshot[] = [
-  { label: 'Coaching Compliance', value: '68%', trend: 'up' },
-  { label: 'Agenda Completeness', value: '82%', trend: 'up' },
-  { label: 'Action Log Rate', value: '77%', trend: 'up' },
-  { label: 'Duplicate Reports', value: '6/wk', trend: 'down' },
-  { label: 'Meeting Effectiveness', value: '3.4/5', trend: 'up' },
-  { label: 'Voice Participation', value: '83%', trend: 'up' },
-  { label: 'Friction Hours Saved', value: '20 hrs/mo', trend: 'down' },
+  // Mission: "Equip youth and families to build safety, belonging, and long-term opportunity"
+  { label: 'Youth Retention', value: '84%', trend: 'up', group: 'mission', target: '80%' },
+  { label: 'Family Engagement', value: '3.7/5', trend: 'up', group: 'mission', target: '3.5' },
+  { label: 'Staff Satisfaction', value: '3.9/5', trend: 'up', group: 'mission', target: '4.0' },
+  // Voice Health: is the listening loop working?
+  { label: 'Voice Participation', value: '83%', trend: 'up', group: 'voice' },
+  { label: 'Response → Action', value: '71%', trend: 'up', group: 'voice' },
+  { label: 'Trust Trend', value: '3.6/5', trend: 'up', group: 'voice' },
+  // Time Reclaimed: is FieldVoices cutting busywork?
+  { label: 'Hours Saved', value: '20 hrs/mo', trend: 'up', group: 'time' },
+  { label: 'Actions Closed', value: '4 this month', trend: 'up', group: 'time' },
 ];
 
 // ─── You Said / We Did ──────────────────────────────────────

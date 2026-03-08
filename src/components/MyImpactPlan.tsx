@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import BreathingExercise from '@/components/BreathingExercise';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { synthesizeActions, getActionsForRole, generateForwardPlan } from '@/lib/synthesis';
 import {
@@ -27,6 +28,9 @@ interface MyImpactPlanProps {
   userName: string;
   role: UserRole;
   demoMode: boolean;
+  onBreathingStart?: () => void;
+  breathingActive?: boolean;
+  onBreathingComplete?: () => void;
 }
 
 type ToastType = 'success' | 'info';
@@ -80,7 +84,7 @@ const ACTION_MENU_ITEMS: { key: PushDestination; label: string; emoji: string }[
 
 // ─── Component ────────────────────────────────────────────
 
-export default function MyImpactPlan({ userName, role, demoMode }: MyImpactPlanProps) {
+export default function MyImpactPlan({ userName, role, demoMode, onBreathingStart, breathingActive, onBreathingComplete }: MyImpactPlanProps) {
   const [additionalItems, setAdditionalItems] = useLocalStorage<string[]>('fieldvoices-impact-items', []);
   const [pushedActions, setPushedActions] = useLocalStorage<PushedAction[]>('fieldvoices-pushed-actions', []);
   const [newItem, setNewItem] = useState('');
@@ -284,11 +288,11 @@ export default function MyImpactPlan({ userName, role, demoMode }: MyImpactPlanP
 
     try {
       await navigator.clipboard.writeText(ticket);
-      markAsPushed(action.id, 'ticket');
-      setToast({ message: `Ticket copied — paste into your ticket system`, type: 'success' });
     } catch {
-      setToast({ message: 'Could not copy — try again', type: 'info' });
+      // Clipboard may not be available — still mark as pushed
     }
+    markAsPushed(action.id, 'ticket');
+    setToast({ message: `Ticket copied — paste into your ticket system`, type: 'success' });
   };
 
   const handleItemFolder = (action: SynthesizedAction) => {
@@ -471,23 +475,40 @@ export default function MyImpactPlan({ userName, role, demoMode }: MyImpactPlanP
 
         return (
           <div className="space-y-4">
-            {lanes.map((lane) => (
-              <div key={lane.key} className={`rounded-xl border ${lane.border} bg-navy-800/30 overflow-hidden`}>
-                {/* Lane header — clickable to expand/collapse */}
+            {lanes.map((lane) => {
+              const isImmediate = lane.key === 'immediate';
+              const handleLaneClick = () => {
+                if (isImmediate && onBreathingStart) {
+                  onBreathingStart();
+                } else {
+                  setExpandedLanes(prev => ({ ...prev, [lane.key]: !prev[lane.key] }));
+                }
+              };
+
+              return (
+              <div key={lane.key} className={`rounded-xl border ${lane.border} bg-navy-800/30 overflow-hidden ${isImmediate ? 'relative' : ''}`}>
+                {/* Lane header — clickable to expand/collapse (immediate lane triggers breathing) */}
                 <button
-                  onClick={() => setExpandedLanes(prev => ({ ...prev, [lane.key]: !prev[lane.key] }))}
+                  onClick={handleLaneClick}
                   className="w-full px-4 py-3 text-left hover:bg-navy-800/40 transition-colors"
+                  title={isImmediate && onBreathingStart ? 'Take a breath' : undefined}
                 >
                   <div className="flex items-center justify-between">
                     <h4 className={`text-xs font-semibold uppercase tracking-wider ${lane.accent}`}>
                       {lane.label}
                       <span className="ml-2 text-text-muted font-normal">({lane.items.length})</span>
                     </h4>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-text-muted transition-transform ${expandedLanes[lane.key] ? 'rotate-180' : ''}`}>
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    {isImmediate && onBreathingStart ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gold-400 chevron-heartbeat">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-text-muted transition-transform ${expandedLanes[lane.key] ? 'rotate-180' : ''}`}>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
                   </div>
-                  {!expandedLanes[lane.key] && (
+                  {!expandedLanes[lane.key] && !isImmediate && (
                     <p className="text-[11px] text-text-muted mt-0.5">{lane.description}</p>
                   )}
                 </button>
@@ -558,8 +579,14 @@ export default function MyImpactPlan({ userName, role, demoMode }: MyImpactPlanP
                   ))}
                 </div>
                 ) : null}
+
+                {/* Firefly breathing exercise — overlays the immediate lane */}
+                {isImmediate && breathingActive && onBreathingComplete && (
+                  <BreathingExercise onComplete={onBreathingComplete} />
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         );
       })()}

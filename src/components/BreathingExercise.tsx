@@ -1,0 +1,413 @@
+'use client';
+
+import { Fragment, useEffect, useRef, useState } from 'react';
+
+interface BreathingExerciseProps {
+  onComplete: () => void;
+}
+
+// ─── Timing: 5 breaths, progressively longer. Starts with exhale. ───
+// Each breath elongates — slowing down with the user.
+
+const BREATH_TIMINGS = [
+  { exhale: 4500, inhale: 4500 },   // 9s  — finding the rhythm
+  { exhale: 5500, inhale: 5500 },   // 11s — settling in
+  { exhale: 7500, inhale: 5500 },   // 13s — "a little longer"
+  { exhale: 6500, inhale: 6500 },   // 13s — deepening
+  { exhale: 7000, inhale: 7000 },   // 14s — fully settled
+];
+
+const TOTAL_BREATHS = BREATH_TIMINGS.length;
+
+// ─── Guided prompts per breath ──────────────────
+
+const PROMPTS: { exhale: string; inhale: string }[] = [
+  { exhale: 'Let it out', inhale: 'Breathe in' },
+  { exhale: 'Notice where your breath is going', inhale: '' },
+  { exhale: 'Let it out\u2026\na little longer if you can', inhale: 'Breathe in' },
+  { exhale: 'Let it out', inhale: 'Breathe in' },
+  { exhale: 'Let it out', inhale: '' },
+];
+
+// ─── Cumulative timeline (computed once) ────────
+
+const TIMELINE = (() => {
+  let t = 0;
+  const entries: { start: number; exhaleEnd: number; end: number; idx: number }[] = [];
+  for (let i = 0; i < TOTAL_BREATHS; i++) {
+    const { exhale, inhale } = BREATH_TIMINGS[i];
+    entries.push({ start: t, exhaleEnd: t + exhale, end: t + exhale + inhale, idx: i });
+    t += exhale + inhale;
+  }
+  return { entries, total: t };
+})();
+
+// ─── Firefly config ─────────────────────────────
+
+const NUM_FIREFLIES = 30;
+const TRAIL_STEPS = 5;
+
+interface Firefly {
+  sx: number; sy: number;
+  c1x: number; c1y: number;
+  c2x: number; c2y: number;
+  ex: number; ey: number;
+  radius: number;
+  brightness: number;
+  speedOffset: number;
+  wobbleAmp: number;
+  wobbleFreq: number;
+  wobblePhase: number;
+}
+
+// ─── Math ───────────────────────────────────────
+
+function cubicBezier(t: number, p0: number, p1: number, p2: number, p3: number): number {
+  const u = 1 - t;
+  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+}
+
+function easeInOutQuad(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+function generateFireflies(
+  ox: number, oy: number,
+  w: number, h: number,
+  direction: 'out' | 'in',
+  prevEnds?: { x: number; y: number }[]
+): Firefly[] {
+  const flies: Firefly[] = [];
+  // Push all the way to edges — some particles slightly beyond (clipped by overflow-hidden)
+  const overX = w * 0.04;
+  const overY = h * 0.04;
+
+  for (let i = 0; i < NUM_FIREFLIES; i++) {
+    const destX = -overX + Math.random() * (w + overX * 2);
+    const destY = -overY + Math.random() * (h + overY * 2);
+
+    let sx: number, sy: number, ex: number, ey: number;
+
+    if (direction === 'out') {
+      sx = ox + (Math.random() - 0.5) * 10;
+      sy = oy + (Math.random() - 0.5) * 10;
+      ex = destX;
+      ey = destY;
+    } else {
+      sx = prevEnds && prevEnds[i] ? prevEnds[i].x : destX;
+      sy = prevEnds && prevEnds[i] ? prevEnds[i].y : destY;
+      ex = ox + (Math.random() - 0.5) * 8;
+      ey = oy + (Math.random() - 0.5) * 8;
+    }
+
+    const mx = (sx + ex) / 2;
+    const my = (sy + ey) / 2;
+    const spread = Math.max(w, h) * 0.38;
+
+    flies.push({
+      sx, sy, ex, ey,
+      c1x: mx + (Math.random() - 0.5) * spread,
+      c1y: my + (Math.random() - 0.5) * spread,
+      c2x: mx + (Math.random() - 0.5) * spread,
+      c2y: my + (Math.random() - 0.5) * spread,
+      radius: 1.5 + Math.random() * 2.5,
+      brightness: 0.45 + Math.random() * 0.55,
+      speedOffset: (Math.random() - 0.5) * 0.18,
+      wobbleAmp: 0.6 + Math.random() * 2.2,
+      wobbleFreq: 1.2 + Math.random() * 2.8,
+      wobblePhase: Math.random() * Math.PI * 2,
+    });
+  }
+  return flies;
+}
+
+// ─── Component ──────────────────────────────────
+
+export default function BreathingExercise({ onComplete }: BreathingExerciseProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
+  const startRef = useRef(0);
+  const firefliesRef = useRef<Firefly[]>([]);
+  const prevBreathRef = useRef(-1);
+  const prevPhaseRef = useRef<'exhale' | 'inhale' | null>(null);
+  const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  const [overlayOpacity, setOverlayOpacity] = useState(0);
+  const [promptText, setPromptText] = useState('');
+  const [promptOpacity, setPromptOpacity] = useState(0);
+  const [promptKey, setPromptKey] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    // Reduced motion check
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Origin: top-right of the lane, near the chevron
+    const originX = w - 32;
+    const originY = 24;
+
+    // Delay breathing start so overlay fade-in has a head start
+    const INTRO_DELAY = 900;
+    startRef.current = performance.now() + INTRO_DELAY;
+    doneRef.current = false;
+    prevBreathRef.current = -1;
+    prevPhaseRef.current = null;
+
+    // Fade in
+    requestAnimationFrame(() => setOverlayOpacity(1));
+
+    // Set first prompt after delay
+    const promptTimer = setTimeout(() => {
+      setPromptText(PROMPTS[0].exhale);
+      setPromptKey(k => k + 1);
+      setPromptOpacity(1);
+    }, INTRO_DELAY + 200);
+
+    const tick = () => {
+      if (doneRef.current) return;
+
+      const now = performance.now();
+      const elapsed = now - startRef.current;
+
+      // Still in intro delay — just wait
+      if (elapsed < 0) {
+        ctx.clearRect(0, 0, w, h);
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // Exercise complete
+      if (elapsed >= TIMELINE.total) {
+        doneRef.current = true;
+        setPromptOpacity(0);
+        setTimeout(() => {
+          setOverlayOpacity(0);
+          setTimeout(() => onCompleteRef.current(), 1500);
+        }, 500);
+        return;
+      }
+
+      // ─── Find current breath & phase ───
+      let breathIdx = 0;
+      let phase: 'exhale' | 'inhale' = 'exhale';
+      let phaseProgress = 0;
+
+      for (const entry of TIMELINE.entries) {
+        if (elapsed >= entry.start && elapsed < entry.end) {
+          breathIdx = entry.idx;
+          if (elapsed < entry.exhaleEnd) {
+            phase = 'exhale';
+            phaseProgress = (elapsed - entry.start) / BREATH_TIMINGS[breathIdx].exhale;
+          } else {
+            phase = 'inhale';
+            phaseProgress = (elapsed - entry.exhaleEnd) / BREATH_TIMINGS[breathIdx].inhale;
+          }
+          break;
+        }
+      }
+
+      // ─── Phase transition ───
+      if (breathIdx !== prevBreathRef.current || phase !== prevPhaseRef.current) {
+        if (phase === 'exhale') {
+          firefliesRef.current = generateFireflies(originX, originY, w, h, 'out');
+        } else {
+          const prevEnds = firefliesRef.current.map(f => ({ x: f.ex, y: f.ey }));
+          firefliesRef.current = generateFireflies(originX, originY, w, h, 'in', prevEnds);
+        }
+
+        prevBreathRef.current = breathIdx;
+        prevPhaseRef.current = phase;
+
+        // Update prompt — fade out, then set new words and fade in
+        const prompt = PROMPTS[breathIdx];
+        const newText = phase === 'exhale' ? prompt.exhale : prompt.inhale;
+        setPromptOpacity(0);
+        setTimeout(() => {
+          setPromptText(newText);
+          setPromptKey(k => k + 1);
+          if (newText) setPromptOpacity(1);
+        }, 500);
+      }
+
+      // ─── Draw ───
+      ctx.clearRect(0, 0, w, h);
+
+      if (reducedMotion) {
+        // Reduced motion: just show a static cluster of dots at rest
+        for (const fly of firefliesRef.current) {
+          ctx.beginPath();
+          ctx.arc(fly.ex, fly.ey, fly.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(212, 184, 92, ${fly.brightness * 0.5})`;
+          ctx.fill();
+        }
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const t = Math.max(0, Math.min(1, phaseProgress));
+
+      // Ambient breath glow — a soft golden pulse centered in the container
+      const breathAmt = phase === 'exhale' ? easeInOutQuad(t) : 1 - easeInOutQuad(t);
+      const ambientAlpha = 0.015 + breathAmt * 0.035;
+      const ambientGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.55);
+      ambientGrad.addColorStop(0, `rgba(201, 168, 76, ${ambientAlpha})`);
+      ambientGrad.addColorStop(1, 'rgba(201, 168, 76, 0)');
+      ctx.fillStyle = ambientGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw each firefly
+      for (const fly of firefliesRef.current) {
+        const ft = Math.max(0, Math.min(1, t + fly.speedOffset));
+        const eased = easeInOutQuad(ft);
+
+        const x = cubicBezier(eased, fly.sx, fly.c1x, fly.c2x, fly.ex);
+        const y = cubicBezier(eased, fly.sy, fly.c1y, fly.c2y, fly.ey);
+
+        // Wobble
+        const wx = Math.sin(now * 0.001 * fly.wobbleFreq + fly.wobblePhase) * fly.wobbleAmp;
+        const wy = Math.cos(now * 0.001 * fly.wobbleFreq + fly.wobblePhase + 1.2) * fly.wobbleAmp;
+        const fx = x + wx;
+        const fy = y + wy;
+
+        // Pulse
+        const pulse = 0.72 + 0.28 * Math.sin(now * 0.0018 + fly.wobblePhase);
+        const opacity = fly.brightness * pulse;
+
+        // ─── Trail: faint dots behind the particle ───
+        for (let ti = TRAIL_STEPS; ti >= 1; ti--) {
+          const trailT = Math.max(0, Math.min(1, eased - ti * 0.022));
+          const tx = cubicBezier(trailT, fly.sx, fly.c1x, fly.c2x, fly.ex) + wx * 0.4;
+          const ty = cubicBezier(trailT, fly.sy, fly.c1y, fly.c2y, fly.ey) + wy * 0.4;
+          const ta = opacity * (1 - ti / (TRAIL_STEPS + 1)) * 0.25;
+          const tr = fly.radius * (1 - ti * 0.08);
+          ctx.beginPath();
+          ctx.arc(tx, ty, Math.max(0.4, tr), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(201, 168, 76, ${ta})`;
+          ctx.fill();
+        }
+
+        // ─── Outer bloom (radial gradient) ───
+        const bloomR = fly.radius * 5.5;
+        const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, bloomR);
+        grad.addColorStop(0, `rgba(228, 206, 120, ${opacity * 0.45})`);
+        grad.addColorStop(0.3, `rgba(212, 184, 92, ${opacity * 0.12})`);
+        grad.addColorStop(0.7, `rgba(201, 168, 76, ${opacity * 0.03})`);
+        grad.addColorStop(1, 'rgba(201, 168, 76, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(fx - bloomR, fy - bloomR, bloomR * 2, bloomR * 2);
+
+        // ─── Inner warm halo ───
+        ctx.beginPath();
+        ctx.arc(fx, fy, fly.radius * 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 195, 105, ${opacity * 0.35})`;
+        ctx.fill();
+
+        // ─── Core bright dot ───
+        ctx.beginPath();
+        ctx.arc(fx, fy, fly.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(245, 225, 150, ${opacity * 0.92})`;
+        ctx.fill();
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      clearTimeout(promptTimer);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 z-10 rounded-xl overflow-hidden"
+      style={{ opacity: overlayOpacity, transition: 'opacity 1.5s ease-in-out' }}
+      role="dialog"
+      aria-label="Breathing exercise"
+      aria-live="polite"
+    >
+      {/* Cinematic backdrop — vignette + dim */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'radial-gradient(ellipse at 70% 30%, rgba(10, 15, 28, 0.78), rgba(10, 15, 28, 0.94))',
+        }}
+      />
+
+      {/* Firefly canvas */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        style={{ zIndex: 1 }}
+      />
+
+      {/* Text prompt — word-by-word reveal in handwriting */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        style={{ zIndex: 2, opacity: promptOpacity, transition: 'opacity 300ms ease-out' }}
+      >
+        <p
+          key={promptKey}
+          className="text-lg md:text-2xl text-center leading-loose"
+          style={{
+            fontFamily: 'var(--font-caveat), cursive',
+            color: 'rgba(237, 217, 160, 0.75)',
+            textShadow: '0 0 40px rgba(201, 168, 76, 0.3), 0 0 80px rgba(201, 168, 76, 0.12), 0 1px 4px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          {promptText && (() => {
+            const words: { word: string; lineBreakBefore: boolean }[] = [];
+            const lines = promptText.split('\n');
+            for (let li = 0; li < lines.length; li++) {
+              const lineWords = lines[li].split(/\s+/).filter(Boolean);
+              for (let wi = 0; wi < lineWords.length; wi++) {
+                words.push({ word: lineWords[wi], lineBreakBefore: li > 0 && wi === 0 });
+              }
+            }
+            return words.map((item, i, arr) => (
+              <Fragment key={i}>
+                {item.lineBreakBefore && <br />}
+                <span
+                  className="breath-word"
+                  style={{ animationDelay: `${i * 300}ms` }}
+                >
+                  {item.word}
+                </span>
+                {i < arr.length - 1 && !arr[i + 1]?.lineBreakBefore && ' '}
+              </Fragment>
+            ));
+          })()}
+        </p>
+      </div>
+
+      {/* Screen reader announcements */}
+      <div className="sr-only" aria-live="assertive">
+        {promptText}
+      </div>
+    </div>
+  );
+}

@@ -36,9 +36,12 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
         // localStorage full or unavailable
       }
       // Dispatch custom event so other hook instances on the same page sync
-      window.dispatchEvent(
-        new CustomEvent(SYNC_EVENT, { detail: { key } })
-      );
+      // Use queueMicrotask to avoid setState-during-render when multiple components share a key
+      queueMicrotask(() => {
+        window.dispatchEvent(
+          new CustomEvent(SYNC_EVENT, { detail: { key } })
+        );
+      });
       return newValue;
     });
   }, [key]);

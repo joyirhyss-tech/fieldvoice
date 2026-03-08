@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { WorkspaceView, ArchiveView, CampaignDraft, ChecklistItem, LoggedInUser, PushedSurvey } from '@/lib/types';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { getRoleConfig } from '@/lib/roles';
@@ -35,6 +35,8 @@ import ViewTransition from '@/components/ViewTransition';
 import VoiceStewardDashboard from '@/components/VoiceStewardDashboard';
 import GettingStartedCard from '@/components/GettingStartedCard';
 import PeopleClusterIcon from '@/components/PeopleClusterIcon';
+import { synthesizeActions, getActionsForRole } from '@/lib/synthesis';
+import { getDocumentContentByCategory } from '@/lib/useDocumentStore';
 import {
   isDemoMode,
   seedDemoData,
@@ -102,10 +104,15 @@ export default function Home() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [concernsExpanded, setConcernsExpanded] = useState(false);
+  const [metricsRevealed, setMetricsRevealed] = useState(false);
   const [surveyAccepted, setSurveyAccepted] = useState(false);
   const [surveyMethod, setSurveyMethod] = useState('desktop');
   const [demoMode, setDemoMode] = useState(() => isDemoMode());
   const [activePushedSurvey, setActivePushedSurvey] = useState<PushedSurvey | null>(null);
+  const [tickerPosts, setTickerPosts] = useLocalStorage<Array<{ id: string; from: string; name: string; message: string }>>('fieldvoices-ticker-posts', []);
+  const [tickerDraft, setTickerDraft] = useState('');
+  const [breathingActive, setBreathingActive] = useState(false);
 
   const { t } = useTranslation();
   const [mobileAgencyOpen, setMobileAgencyOpen] = useState(false);
@@ -126,6 +133,11 @@ export default function Home() {
     return () => { clearTimeout(fadeTimer); clearTimeout(goneTimer); };
   }, []);
 
+  // Exit breathing exercise when navigating away
+  useEffect(() => {
+    setBreathingActive(false);
+  }, [activeView]);
+
   // Hydrate active pushed survey from localStorage (demo continuity across reloads)
   useEffect(() => {
     if (!demoMode) return;
@@ -138,6 +150,65 @@ export default function Home() {
       }
     } catch { /* non-critical */ }
   }, [demoMode]);
+
+  // Read pushed actions from Impact Plan to build follow-ups
+  const [pushedActions] = useLocalStorage<{ actionId: string; destination: string; pushedAt: string }[]>('fieldvoices-pushed-actions', []);
+
+  const followUps = useMemo(() => {
+    if (!demoMode) return [];
+
+    // Build action lookup from synthesis
+    const actions = (() => {
+      try {
+        const all = synthesizeActions({
+          themes: DEMO_THEMES,
+          beHeardSubmissions: DEMO_BE_HEARD,
+          kpis: DEMO_KPIS,
+          youSaidWeDid: DEMO_YOU_SAID_WE_DID,
+          role: loggedInUser?.role || 'ed',
+          existingActions: [],
+        });
+        return getActionsForRole(all, loggedInUser?.role || 'ed');
+      } catch { return []; }
+    })();
+
+    const actionMap = new Map(actions.map(a => [a.id, a]));
+    const destLabels: Record<string, string> = { calendar: 'Calendar', email: 'Email', agenda: 'Agenda', ticket: 'Ticket', folder: 'Folder', deferred: 'Next Week' };
+
+    // Pushed actions become follow-ups
+    const fromPushed = pushedActions.map(p => {
+      const action = actionMap.get(p.actionId);
+      const label = action ? action.description.slice(0, 45) + (action.description.length > 45 ? '...' : '') : p.actionId;
+      const date = new Date(p.pushedAt);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return { label: `${label}`, date: `${destLabels[p.destination] || p.destination} ${dateStr}`, status: 'scheduled' as const };
+    });
+
+    // Merge: pushed actions first, then fill with demo defaults (skip if we have pushed items)
+    if (fromPushed.length > 0) return fromPushed;
+    return DEMO_FOLLOW_UPS;
+  }, [demoMode, pushedActions, loggedInUser?.role]);
+
+  // Compute live metrics from uploaded docs + real data
+  const liveMetrics = useMemo(() => {
+    // Parse targets from uploaded background doc
+    const bgContent = getDocumentContentByCategory('background');
+    const parseTarget = (pattern: RegExp): string | null => {
+      const match = bgContent.match(pattern);
+      return match ? match[1] : null;
+    };
+
+    const youthRetentionTarget = parseTarget(/youth retention.*?target:\s*([\d.]+%?)/i);
+    const familyEngagementTarget = parseTarget(/family engagement.*?target:\s*([\d./]+)/i);
+    const staffSatisfactionTarget = parseTarget(/staff satisfaction.*?target:\s*([\d./]+)/i);
+
+    const hasDocTargets = !!(youthRetentionTarget || familyEngagementTarget || staffSatisfactionTarget);
+
+    // Real actions closed count from pushed actions
+    const actionsClosedCount = pushedActions.length;
+
+    return { youthRetentionTarget, familyEngagementTarget, staffSatisfactionTarget, hasDocTargets, actionsClosedCount };
+  }, [pushedActions]);
 
   const currentRole = loggedInUser?.role || 'ed';
   const roleConfig = getRoleConfig(currentRole);
@@ -253,7 +324,7 @@ export default function Home() {
       case 'survey-bank':
         return 'Survey Bank';
       default:
-        return t('workspace.title');
+        return `${loggedInUser.name.split(' ')[0]}'s Workspace`;
     }
   };
 
@@ -534,6 +605,91 @@ export default function Home() {
                       </button>
                     </div>
                   )}
+
+                  {/* Ticker post compose — Tier 1 roles */}
+                  {roleConfig.canRequest && (
+                    <div className="card-surface p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold-500">
+                          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-gold-400">
+                          Post to Ticker
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-text-muted mb-3">
+                        Share a success, celebrate someone, or make an announcement. This scrolls across everyone&apos;s footer.
+                      </p>
+                      <div className="space-y-2">
+                        <textarea
+                          value={tickerDraft}
+                          onChange={(e) => {
+                            const words = e.target.value.trim().split(/\s+/);
+                            if (words.length <= 20 || e.target.value.length < tickerDraft.length) {
+                              setTickerDraft(e.target.value);
+                            }
+                          }}
+                          placeholder="e.g. Voice participation hit 83% this week — highest ever. Keep it going team!"
+                          className="w-full bg-navy-800/50 border border-border-subtle rounded-lg px-3 py-2 text-xs text-text-primary placeholder:text-text-muted/50 resize-none focus:outline-none focus:border-gold-500/40 transition-colors"
+                          rows={2}
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] ${
+                            tickerDraft.trim().split(/\s+/).filter(Boolean).length > 18
+                              ? 'text-alert-rose'
+                              : 'text-text-muted'
+                          }`}>
+                            {tickerDraft.trim() ? tickerDraft.trim().split(/\s+/).length : 0}/20 words
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (!tickerDraft.trim()) return;
+                              const post = {
+                                id: `tp-${Date.now()}`,
+                                from: loggedInUser.staffId,
+                                name: loggedInUser.name,
+                                message: tickerDraft.trim(),
+                              };
+                              setTickerPosts((prev) => [post, ...prev]);
+                              setTickerDraft('');
+                            }}
+                            disabled={!tickerDraft.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold-500 text-navy-950 text-xs font-semibold hover:bg-gold-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                            </svg>
+                            Post
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Recent posts from this user */}
+                      {tickerPosts.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border-subtle">
+                          <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">Recent posts</p>
+                          <div className="space-y-1.5">
+                            {tickerPosts.slice(0, 3).map((post) => (
+                              <div key={post.id} className="flex items-start justify-between gap-2">
+                                <p className="text-[11px] text-text-secondary leading-snug">
+                                  <span className="text-gold-400">✦</span> {post.message}
+                                </p>
+                                <button
+                                  onClick={() => setTickerPosts((prev) => prev.filter((p) => p.id !== post.id))}
+                                  className="text-text-muted hover:text-alert-rose transition-colors shrink-0 mt-0.5"
+                                  title="Remove post"
+                                >
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -581,12 +737,8 @@ export default function Home() {
               const quote = getRotatingQuote();
               return (
                 <div className="space-y-8">
-                  {/* Personalized greeting */}
+                  {/* Floating quote — fades out 5-10s, then collapses */}
                   <div className="pt-4 text-center">
-                    <h2 className="text-xl font-semibold text-text-primary mb-6">
-                      Welcome back, {loggedInUser.name.split(' ')[0]}
-                    </h2>
-
                     {/* Floating quote — fades out 5-10s, then collapses */}
                     {quoteFade !== 'gone' && (
                       <div
@@ -627,7 +779,7 @@ export default function Home() {
                   {/* My Impact Plan — prominent, always visible */}
                   {roleConfig.canRequest && (
                     <div id="impact-plan">
-                      <MyImpactPlan userName={loggedInUser.name} role={currentRole} demoMode={demoMode} />
+                      <MyImpactPlan userName={loggedInUser.name} role={currentRole} demoMode={demoMode} onBreathingStart={() => setBreathingActive(true)} breathingActive={breathingActive} onBreathingComplete={() => setBreathingActive(false)} />
                     </div>
                   )}
 
@@ -702,6 +854,7 @@ export default function Home() {
             </ViewTransition>
             </ErrorBoundary>
           </div>
+
         </main>
 
         {/* Right panel: Agency-Wide — desktop only, mobile uses sheet overlay */}
@@ -763,22 +916,33 @@ export default function Home() {
               <div className="p-4 space-y-3 border-b border-border-subtle">
                 <h4 className="text-xs font-medium text-text-secondary">Top Repeated Concerns</h4>
                 {demoMode ? (
-                  <div className="space-y-2">
-                    {DEMO_THEMES.map((theme) => (
-                      <div key={theme.id} className="flex items-start gap-2">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
-                          theme.severity === 'critical' ? 'bg-alert-rose' :
-                          theme.severity === 'high' ? 'bg-gold-500' :
-                          theme.severity === 'medium' ? 'bg-gold-400/60' :
-                          'bg-text-muted'
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-text-primary leading-relaxed">{theme.theme}</p>
-                          <p className="text-[11px] text-text-muted">{theme.frequency} signals &middot; {theme.department}</p>
-                        </div>
+                  <>
+                    <button
+                      onClick={() => setConcernsExpanded(!concernsExpanded)}
+                      className="w-full flex items-center justify-between py-1"
+                    >
+                      <span className="text-sm font-medium text-text-primary">{DEMO_THEMES.length} Concerns Tracked</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-text-muted transition-transform ${concernsExpanded ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {concernsExpanded && (
+                      <div className="space-y-2 pt-1">
+                        {DEMO_THEMES.map((theme) => (
+                          <div key={theme.id} className="flex items-start gap-2">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${
+                              theme.severity === 'critical' ? 'bg-alert-rose' :
+                              theme.severity === 'high' ? 'bg-gold-500' :
+                              theme.severity === 'medium' ? 'bg-gold-400/60' :
+                              'bg-text-muted'
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-text-primary leading-relaxed">{theme.theme}</p>
+                              <p className="text-[11px] text-text-muted">{theme.frequency} signals &middot; {theme.department}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <p className="text-xs text-text-muted py-2">
                     No data yet. Concerns will surface once surveys are active.
@@ -789,12 +953,12 @@ export default function Home() {
               {/* Follow-ups */}
               <div className="p-4 space-y-3 border-b border-border-subtle">
                 <h4 className="text-xs font-medium text-text-secondary">Scheduled Follow-Ups</h4>
-                {demoMode ? (
+                {followUps.length > 0 ? (
                   <div className="space-y-2">
-                    {DEMO_FOLLOW_UPS.map((fu, i) => (
-                      <div key={i} className="flex items-center justify-between text-[11px]">
-                        <span className="text-text-secondary">{fu.label}</span>
-                        <span className={`px-2 py-0.5 rounded text-[11px] ${
+                    {followUps.map((fu, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] gap-2">
+                        <span className="text-text-secondary flex-1 min-w-0 truncate">{fu.label}</span>
+                        <span className={`px-2 py-0.5 rounded text-[11px] flex-shrink-0 ${
                           fu.status === 'scheduled'
                             ? 'bg-accent-sage/10 text-accent-sage'
                             : 'bg-navy-700 text-text-muted'
@@ -809,53 +973,150 @@ export default function Home() {
                 )}
               </div>
 
-              {/* You Said / We Did — functional accountability loop */}
-              <div className="p-4" role="region" aria-label="You Said We Did accountability tracker">
-                <div className="rounded-lg p-3 border border-gold-500/30 bg-navy-800 shadow-[0_0_16px_rgba(201,168,76,0.12),inset_0_1px_0_rgba(201,168,76,0.08)]">
-                  <h4 className="text-xs font-semibold text-gold-400 mb-2">You Said / We Did</h4>
-                  {demoMode ? (
-                    <div className="space-y-3">
-                      {DEMO_YOU_SAID_WE_DID.map((entry) => (
-                        <div key={entry.id} className="space-y-2">
-                          <p className="text-xs text-text-muted italic">&ldquo;{entry.youSaid}&rdquo;</p>
-                          <p className="text-xs text-accent-sage">&rarr; {entry.weDid}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-text-muted">
-                      No entries yet. This section will show actions taken in response to your feedback.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Agency Metrics */}
+              {/* Shared Impact — reveal button + grouped metrics */}
               <div className="p-4 border-t border-border-subtle">
-                <h4 className="text-xs font-medium text-text-secondary mb-2">Agency Metrics</h4>
-                {demoMode ? (
-                  <div className="space-y-2">
-                    {DEMO_KPIS.map((kpi) => (
-                      <div key={kpi.label} className="flex items-center justify-between text-[11px]">
-                        <span className="text-text-secondary">{kpi.label}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-text-primary">{kpi.value}</span>
-                          <span className={`text-[11px] ${
-                            kpi.trend === 'up' ? 'text-accent-sage' :
-                            kpi.trend === 'down' ? (kpi.label.includes('Duplicate') || kpi.label.includes('Friction') ? 'text-accent-sage' : 'text-alert-rose') :
-                            'text-text-muted'
-                          }`}>
-                            {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'}
-                          </span>
+                <button
+                  onClick={() => setMetricsRevealed(!metricsRevealed)}
+                  className="w-full group"
+                >
+                  <div className={`relative overflow-hidden rounded-lg border transition-all duration-500 ${
+                    metricsRevealed
+                      ? 'border-gold-500/30 bg-navy-800'
+                      : 'border-gold-500/40 bg-gradient-to-r from-gold-500/10 via-gold-500/5 to-transparent hover:border-gold-500/60 hover:shadow-[0_0_20px_rgba(201,168,76,0.15)]'
+                  }`}>
+                    <div className={`flex items-center justify-between px-3 py-2.5 transition-all duration-500 ${metricsRevealed ? '' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-500 ${
+                          metricsRevealed ? 'bg-gold-500/20' : 'bg-gold-500/30'
+                        }`}>
+                          <svg
+                            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                            className={`text-gold-400 transition-transform duration-500 ${metricsRevealed ? 'rotate-[360deg]' : 'rotate-0'}`}
+                          >
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                            <path d="M2 17l10 5 10-5" />
+                            <path d="M2 12l10 5 10-5" />
+                          </svg>
                         </div>
+                        <span className="text-xs font-semibold text-gold-400">Shared Impact</span>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-2">
+                        {!metricsRevealed && demoMode && (
+                          <div className="flex gap-0.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-gold-400" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-accent-sage" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                          </div>
+                        )}
+                        <svg
+                          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                          className={`text-gold-400/60 transition-transform duration-500 ${metricsRevealed ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Reveal content */}
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                      metricsRevealed ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+                    }`}>
+                      <div className="px-3 pb-3 space-y-3 text-left">
+                        {demoMode ? (
+                          <>
+                            {/* Mission Alignment */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-gold-400" />
+                                <h4 className="text-[10px] font-semibold text-gold-400 uppercase tracking-wider">Mission</h4>
+                                {liveMetrics.hasDocTargets && (
+                                  <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-gold-500/10 text-gold-400/60 ml-auto">docs</span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1 items-center">
+                                {DEMO_KPIS.filter(k => k.group === 'mission').map((kpi) => {
+                                  const liveTarget =
+                                    kpi.label === 'Youth Retention' ? liveMetrics.youthRetentionTarget :
+                                    kpi.label === 'Family Engagement' ? liveMetrics.familyEngagementTarget :
+                                    kpi.label === 'Staff Satisfaction' ? liveMetrics.staffSatisfactionTarget :
+                                    null;
+                                  const target = liveTarget || kpi.target;
+                                  const hitTarget = target ? parseFloat(kpi.value) >= parseFloat(target) : false;
+                                  return (
+                                    <Fragment key={kpi.label}>
+                                      <span className="text-[11px] text-text-secondary truncate">{kpi.label}</span>
+                                      <span className="text-[11px] font-semibold text-text-primary text-right tabular-nums">{kpi.value}</span>
+                                      <span className={`text-[9px] w-8 text-center rounded py-0.5 ${
+                                        hitTarget
+                                          ? 'bg-accent-sage/15 text-accent-sage'
+                                          : 'bg-gold-500/15 text-gold-400'
+                                      }`}>
+                                        {hitTarget ? '✓' : `→${target}`}
+                                      </span>
+                                    </Fragment>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Voice Health */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-accent-sage" />
+                                <h4 className="text-[10px] font-semibold text-accent-sage uppercase tracking-wider">Voice Health</h4>
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-accent-sage/10 text-accent-sage/60 ml-auto">live</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1 items-center">
+                                {DEMO_KPIS.filter(k => k.group === 'voice').map((kpi) => (
+                                  <Fragment key={kpi.label}>
+                                    <span className="text-[11px] text-text-secondary truncate">{kpi.label}</span>
+                                    <span className="text-[11px] font-semibold text-text-primary text-right tabular-nums">{kpi.value}</span>
+                                    <span className={`text-[9px] w-8 text-center rounded py-0.5 ${
+                                      kpi.trend === 'up' ? 'bg-accent-sage/15 text-accent-sage' : 'bg-gold-500/15 text-gold-400'
+                                    }`}>
+                                      {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'}
+                                    </span>
+                                  </Fragment>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Time Reclaimed */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                                <h4 className="text-[10px] font-semibold text-sky-400 uppercase tracking-wider whitespace-nowrap">Time Saved</h4>
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-sky-400/10 text-sky-400/60 ml-auto">live</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1 items-center">
+                                {DEMO_KPIS.filter(k => k.group === 'time').map((kpi) => {
+                                  const displayValue = kpi.label === 'Actions Closed'
+                                    ? `${liveMetrics.actionsClosedCount}/mo`
+                                    : kpi.value;
+                                  return (
+                                    <Fragment key={kpi.label}>
+                                      <span className="text-[11px] text-text-secondary truncate">{kpi.label}</span>
+                                      <span className="text-[11px] font-semibold text-text-primary text-right tabular-nums">{displayValue}</span>
+                                      <span className={`text-[9px] w-8 text-center rounded py-0.5 ${
+                                        kpi.trend === 'up' ? 'bg-sky-400/15 text-sky-400' : 'bg-gold-500/15 text-gold-400'
+                                      }`}>
+                                        {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'}
+                                      </span>
+                                    </Fragment>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-text-muted py-2">
+                            Metrics will populate as surveys complete and data flows in.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-xs text-text-muted py-2">
-                    Metrics will populate as surveys complete and data flows in.
-                  </p>
-                )}
+                </button>
               </div>
             </div>
           )}
@@ -864,7 +1125,7 @@ export default function Home() {
 
       {/* Bottom ticker — desktop only, hidden on mobile (bottom nav takes that space) */}
       <div className="hidden md:block">
-        <MetricTicker shoutOuts={demoMode ? DEMO_SHOUT_OUTS : []} />
+        <MetricTicker shoutOuts={[...tickerPosts, ...(demoMode ? DEMO_SHOUT_OUTS : [])]} />
       </div>
 
       {/* Mobile bottom nav */}

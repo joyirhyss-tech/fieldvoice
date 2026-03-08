@@ -183,7 +183,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
             </div>
           </div>
           <p className="text-text-secondary text-sm leading-relaxed mb-10 max-w-xs mx-auto">
-            Smart listening, synthesis, and implementation for mission-driven organizations
+            Turns feedback into themes, themes into shared action, and shared action into trust.
           </p>
           <button
             onClick={() => setStep('name-entry')}

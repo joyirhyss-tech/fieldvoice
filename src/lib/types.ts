@@ -87,6 +87,8 @@ export interface KPISnapshot {
   label: string;
   value: string;
   trend: 'up' | 'down' | 'stable';
+  group?: 'mission' | 'voice' | 'time';
+  target?: string;
 }
 
 export type QuestionType =
