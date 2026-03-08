@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { DEMO_INFO_CONTENT } from '@/lib/demo-info-content';
 
 interface DemoInfoTipProps {
@@ -11,13 +12,42 @@ interface DemoInfoTipProps {
 
 export default function DemoInfoTip({ tipKey, position = 'below', className = '' }: DemoInfoTipProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popoverWidth = 256; // w-64
+
+    if (position === 'left') {
+      setCoords({
+        top: rect.top + rect.height / 2,
+        left: rect.left - popoverWidth - 8,
+      });
+    } else {
+      // below — anchor right edge to trigger's right edge to avoid viewport overflow
+      const left = Math.min(
+        rect.left + rect.width / 2 - popoverWidth / 2,
+        window.innerWidth - popoverWidth - 8
+      );
+      setCoords({
+        top: rect.bottom + 8,
+        left: Math.max(8, left),
+      });
+    }
+  }, [position]);
 
   // Click outside to close
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        popoverRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -33,15 +63,27 @@ export default function DemoInfoTip({ tipKey, position = 'below', className = ''
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
+  // Recalculate on scroll/resize while open
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [open, updatePosition]);
+
   const content = DEMO_INFO_CONTENT[tipKey];
   if (!content) return null;
 
-  const positionClasses = position === 'left'
-    ? 'right-full top-1/2 -translate-y-1/2 mr-2'
-    : 'top-full left-1/2 -translate-x-1/2 mt-2';
+  const transformStyle = position === 'left'
+    ? 'translateY(-50%)'
+    : undefined;
 
   return (
-    <span className={`relative inline-flex items-center ${className}`} ref={ref}>
+    <span className={`relative inline-flex items-center ${className}`} ref={triggerRef}>
       <span
         onClick={(e) => {
           e.stopPropagation();
@@ -65,14 +107,17 @@ export default function DemoInfoTip({ tipKey, position = 'below', className = ''
           <line x1="12" y1="8" x2="12.01" y2="8" />
         </svg>
       </span>
-      {open && (
+      {open && coords && createPortal(
         <div
-          className={`absolute ${positionClasses} bg-navy-800/95 backdrop-blur-sm border border-border-gold rounded-lg shadow-xl p-3 w-64 z-50`}
+          ref={popoverRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, transform: transformStyle, zIndex: 9999 }}
+          className="bg-navy-800/95 backdrop-blur-sm border border-border-gold rounded-lg shadow-xl p-3 w-64"
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-xs font-semibold text-gold-400 mb-1">{content.title}</p>
           <p className="text-[11px] text-text-secondary leading-relaxed">{content.body}</p>
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   );

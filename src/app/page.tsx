@@ -937,7 +937,7 @@ export default function Home() {
               <div className="p-4 space-y-3 border-b border-border-subtle">
                 <h4 className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
                   Top Repeated Concerns
-                  {demoMode && <DemoInfoTip tipKey="top-concerns" position="left" />}
+                  {demoMode && <DemoInfoTip tipKey="top-concerns" />}
                 </h4>
                 {demoMode ? (
                   <>
@@ -1024,7 +1024,7 @@ export default function Home() {
                         </div>
                         <span className="text-xs font-semibold text-gold-400 flex items-center gap-1.5">
                           Shared Impact
-                          {demoMode && <DemoInfoTip tipKey="shared-impact" position="left" />}
+                          {demoMode && <DemoInfoTip tipKey="shared-impact" />}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
