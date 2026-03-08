@@ -352,6 +352,7 @@ export default function Home() {
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-gold bg-navy-800 hover:bg-navy-700 text-gold-400 hover:text-gold-300 transition-all text-xs font-medium hover:shadow-[0_0_10px_var(--gold-glow)]"
               title="Settings"
+              aria-label="Connect FieldVoices — settings"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="3" />
@@ -389,6 +390,7 @@ export default function Home() {
             onClick={handleLogout}
             className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border-subtle bg-navy-800 hover:bg-navy-700 text-text-muted hover:text-alert-rose transition-all text-xs"
             title="Sign out"
+            aria-label="Sign out"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

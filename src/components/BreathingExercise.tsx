@@ -139,6 +139,7 @@ export default function BreathingExercise({ onComplete }: BreathingExerciseProps
   const [promptText, setPromptText] = useState('');
   const [promptOpacity, setPromptOpacity] = useState(0);
   const [promptKey, setPromptKey] = useState(0);
+  const [showClosing, setShowClosing] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -196,14 +197,13 @@ export default function BreathingExercise({ onComplete }: BreathingExerciseProps
         return;
       }
 
-      // Exercise complete
+      // Exercise complete — show grounding message before exit
       if (elapsed >= TIMELINE.total) {
         doneRef.current = true;
         setPromptOpacity(0);
         setTimeout(() => {
-          setOverlayOpacity(0);
-          setTimeout(() => onCompleteRef.current(), 1500);
-        }, 500);
+          setShowClosing(true);
+        }, 600);
         return;
       }
 
@@ -408,6 +408,57 @@ export default function BreathingExercise({ onComplete }: BreathingExerciseProps
       <div className="sr-only" aria-live="assertive">
         {promptText}
       </div>
+
+      {/* Closing grounding message */}
+      {showClosing && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ zIndex: 3, animation: 'gentle-fade-in 2.5s ease-in-out both' }}
+        >
+          <div className="text-center max-w-sm px-6 space-y-5">
+            <p
+              className="text-lg md:text-xl leading-relaxed"
+              style={{
+                fontFamily: 'var(--font-caveat), cursive',
+                color: 'rgba(237, 217, 160, 0.85)',
+                textShadow: '0 0 40px rgba(201, 168, 76, 0.3), 0 1px 4px rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              One task at a time.
+            </p>
+            <p
+              className="text-xs md:text-sm leading-relaxed"
+              style={{ color: 'rgba(180, 170, 150, 0.6)' }}
+            >
+              If this still feels heavy, go find a human.<br />
+              That&apos;s not weakness. That&apos;s wisdom.
+            </p>
+            <button
+              onClick={() => {
+                setShowClosing(false);
+                setOverlayOpacity(0);
+                setTimeout(() => onCompleteRef.current(), 1500);
+              }}
+              className="mt-4 px-6 py-2 text-xs tracking-wider uppercase rounded-lg transition-all duration-500"
+              style={{
+                color: 'rgba(201, 168, 76, 0.7)',
+                border: '1px solid rgba(201, 168, 76, 0.2)',
+                background: 'rgba(201, 168, 76, 0.05)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(201, 168, 76, 0.12)';
+                e.currentTarget.style.borderColor = 'rgba(201, 168, 76, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(201, 168, 76, 0.05)';
+                e.currentTarget.style.borderColor = 'rgba(201, 168, 76, 0.2)';
+              }}
+            >
+              Return to your work
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

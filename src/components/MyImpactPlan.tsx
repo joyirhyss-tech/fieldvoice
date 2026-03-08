@@ -492,6 +492,8 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
                   onClick={handleLaneClick}
                   className="w-full px-4 py-3 text-left hover:bg-navy-800/40 transition-colors"
                   title={isImmediate && onBreathingStart ? 'Take a breath' : undefined}
+                  aria-expanded={isImmediate ? undefined : expandedLanes[lane.key]}
+                  aria-label={isImmediate && onBreathingStart ? `${lane.label} — Take a breath` : `${lane.label} — ${expandedLanes[lane.key] ? 'collapse' : 'expand'}`}
                 >
                   <div className="flex items-center justify-between">
                     <h4 className={`text-xs font-semibold uppercase tracking-wider ${lane.accent}`}>
@@ -597,6 +599,8 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
           <button
             onClick={() => setCompletedExpanded(!completedExpanded)}
             className="w-full flex items-center justify-between"
+            aria-expanded={completedExpanded}
+            aria-label={`Completed actions — ${completedExpanded ? 'collapse' : 'expand'}`}
           >
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Completed Actions
@@ -665,6 +669,8 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
         <button
           onClick={() => setAdditionalNotesOpen(!additionalNotesOpen)}
           className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-navy-800 transition-colors"
+          aria-expanded={additionalNotesOpen}
+          aria-label={`Additional notes — ${additionalNotesOpen ? 'collapse' : 'expand'}`}
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-gold-400">
             Additional Notes
@@ -828,6 +834,8 @@ export default function MyImpactPlan({ userName, role, demoMode, onBreathingStar
         <button
           onClick={() => setWeAskedOpen(!weAskedOpen)}
           className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-navy-700/50 transition-colors"
+          aria-expanded={weAskedOpen}
+          aria-label={`We asked, how the agency responded — ${weAskedOpen ? 'collapse' : 'expand'}`}
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-gold-400">We Asked / How the Agency Responded</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-gold-400/60 transition-transform ${weAskedOpen ? 'rotate-180' : ''}`}>
