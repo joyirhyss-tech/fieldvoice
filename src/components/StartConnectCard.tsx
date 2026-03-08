@@ -8,17 +8,18 @@ import { getRoleConfig } from '@/lib/roles';
 
 interface StartConnectCardProps {
   onConnect: (user: LoggedInUser) => void;
+  demoMode?: boolean;
 }
 
 type Step = 'landing' | 'name-entry' | 'pin-setup' | 'pin-entry';
 
-export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
-  const [step, setStep] = useState<Step>('landing');
+export default function StartConnectCard({ onConnect, demoMode }: StartConnectCardProps) {
+  const [step, setStep] = useState<Step>(demoMode ? 'name-entry' : 'landing');
   const { staff, setPin, findByName } = useStaffStore();
 
-  // Name entry state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  // Name entry state — pre-filled in demo mode
+  const [firstName, setFirstName] = useState(demoMode ? 'Lauralani' : '');
+  const [lastName, setLastName] = useState(demoMode ? 'Reece' : '');
   const [nameError, setNameError] = useState('');
   const [matchedMember, setMatchedMember] = useState<StaffMember | null>(null);
 
@@ -49,6 +50,7 @@ export default function StartConnectCard({ onConnect }: StartConnectCardProps) {
     setPinError('');
 
     if (member.pin) {
+      if (demoMode) setPinDigits(['1', '2', '3', '4']);
       setStep('pin-entry');
     } else {
       setStep('pin-setup');

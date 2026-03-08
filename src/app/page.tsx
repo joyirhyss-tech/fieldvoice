@@ -286,17 +286,10 @@ export default function Home() {
     );
   }
 
-  // Sign-in gate — demo mode auto-logs in as Lauralani Reece
+  // Sign-in gate — demo mode pre-fills fields so you just click through
   if (!loggedInUser) {
     if (demoMode) {
-      const demoUser: LoggedInUser = {
-        staffId: 'FV017',
-        name: 'Lauralani Reece',
-        role: 'ed',
-        sessionCreatedAt: new Date().toISOString(),
-      };
-      setLoggedInUser(demoUser);
-      return null;
+      return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
     }
     // Real tool: auto-connect as admin
     const defaultUser: LoggedInUser = {
