@@ -10,11 +10,12 @@ interface StartConnectCardProps {
   onConnect: (user: LoggedInUser) => void;
   demoMode?: boolean;
   liveAdmin?: boolean;
+  onEnableDemo?: () => void;
 }
 
 type Step = 'landing' | 'name-entry' | 'pin-setup' | 'pin-entry';
 
-export default function StartConnectCard({ onConnect, demoMode, liveAdmin }: StartConnectCardProps) {
+export default function StartConnectCard({ onConnect, demoMode, liveAdmin, onEnableDemo }: StartConnectCardProps) {
   const prefill = demoMode || liveAdmin;
   const [step, setStep] = useState<Step>(prefill ? 'name-entry' : 'landing');
   const { staff, setPin, findByName } = useStaffStore();
@@ -205,6 +206,14 @@ export default function StartConnectCard({ onConnect, demoMode, liveAdmin }: Sta
           >
             Sign In
           </button>
+          {onEnableDemo && (
+            <button
+              onClick={onEnableDemo}
+              className="w-full max-w-xs mx-auto mt-3 py-3 px-8 rounded-lg text-sm block border border-border-subtle text-text-secondary hover:text-gold-400 hover:border-gold-500/40 transition-all"
+            >
+              Explore the Demo
+            </button>
+          )}
           <p className="mt-6 text-center text-xs text-text-muted">
             Mission2Impact Library
           </p>
