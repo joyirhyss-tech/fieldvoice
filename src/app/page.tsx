@@ -291,8 +291,8 @@ export default function Home() {
     if (demoMode) {
       return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
     }
-    // Live mode: show login with Admin pre-filled for click-through
-    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} liveAdmin />;
+    // Live mode: show landing page, user clicks Sign In to proceed
+    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} />;
   }
 
   // Determine workspace title and content — i18n-aware
