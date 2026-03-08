@@ -292,7 +292,12 @@ export default function Home() {
       return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} demoMode />;
     }
     // Live mode: show landing page, user clicks Sign In to proceed
-    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} onEnableDemo={() => { seedDemoData(); setDemoMode(true); window.location.reload(); }} />;
+    return <StartConnectCard onConnect={(user) => setLoggedInUser(user)} onEnableDemo={() => {
+      seedDemoData();
+      setDemoMode(true);
+      // Bypass login — go straight into demo workspace as Lauralani
+      setLoggedInUser({ staffId: 'FV017', name: 'Lauralani Reece', role: 'ed', sessionCreatedAt: new Date().toISOString() });
+    }} />;
   }
 
   // Determine workspace title and content — i18n-aware
